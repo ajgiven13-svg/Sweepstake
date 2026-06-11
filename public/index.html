@@ -22,6 +22,20 @@
           Anyone with this link can view and edit the draw. Changes are saved automatically and shared with everyone using this link.
         </section>
 
+        <section class="draw-manager">
+          <div>
+            <label>
+              Saved draw
+              <select id="savedDrawSelect"></select>
+            </label>
+          </div>
+          <div class="button-cluster">
+            <button type="button" class="secondary-button" id="loadSavedDrawButton">Load draw</button>
+            <button type="button" class="secondary-button" id="saveSnapshotButton">Save snapshot</button>
+            <button type="button" class="primary-button" id="newDrawButton">New draw</button>
+          </div>
+        </section>
+
         <nav class="step-tabs" aria-label="Sweepstake sections">
           <button type="button" class="tab-button active" data-step="names">Names</button>
           <button type="button" class="tab-button" data-step="teams">Teams</button>
@@ -124,6 +138,16 @@
               <h3>Excluded teams</h3>
             </div>
             <div class="mini-list" id="excludedList"></div>
+          </section>
+          <section class="subsection custom-draw">
+            <div class="section-heading compact">
+              <h3>Custom draw</h3>
+              <button type="button" class="secondary-button" id="loadCustomDrawButton">Load custom allocation</button>
+            </div>
+            <textarea id="customDrawText" rows="8" placeholder="Paste allocations, for example:
+*Aidan*
+Uzbekistan — Crap — 500/1
+Argentina — Best — 8/1"></textarea>
           </section>
         </section>
 

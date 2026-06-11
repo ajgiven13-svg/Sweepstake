@@ -4,6 +4,7 @@ const TOTAL_TEAMS = 48;
 const TEAMS_PER_BATCH = TOTAL_TEAMS / BATCHES.length;
 const SCHEMA_VERSION = 4;
 const STORAGE_KEY = "world-cup-2026-sweepstake-state";
+const SAVED_DRAWS_KEY = "world-cup-2026-sweepstake-saved-draws";
 const AUDIO_CLIPS = [
   "/assets/audio/yes-yes-yes.mp3",
   "/assets/audio/twat.mp3",
@@ -179,6 +180,30 @@ const DEFAULT_TEAMS = [
   status: "Active"
 }));
 
+const RECOVERED_DRAW_ALLOCATIONS = [
+  ["Aidan", [["uzbekistan", "Crap"], ["ivory-coast", "Not Great"], ["croatia", "Hopeful"], ["argentina", "Best"]]],
+  ["Darragh", [["panama", "Crap"], ["paraguay", "Not Great"], ["sweden", "Hopeful"], ["colombia", "Best"]]],
+  ["Shane", [["tunisia", "Crap"], ["algeria", "Not Great"], ["czechia", "Hopeful"], ["morocco", "Best"]]],
+  ["Hugh", [["cape-verde", "Crap"], ["canada", "Not Great"], ["uruguay", "Hopeful"], ["germany", "Best"]]],
+  ["Michael", [["jordan", "Crap"], ["iran", "Not Great"], ["switzerland", "Hopeful"], ["norway", "Best"]]],
+  ["Matthew", [["curacao", "Crap"], ["south-korea", "Not Great"], ["mexico", "Hopeful"], ["portugal", "Best"]]],
+  ["Rob", [["haiti", "Crap"], ["australia", "Not Great"], ["austria", "Hopeful"], ["brazil", "Best"]]],
+  ["Natalia", [["new-zealand", "Crap"], ["dr-congo", "Not Great"], ["united-states", "Hopeful"], ["belgium", "Best"]]],
+  ["Eef", [["ghana", "Crap"], ["saudi-arabia", "Not Great"], ["senegal", "Hopeful"], ["netherlands", "Best"]]],
+  ["Witz", [["south-africa", "Crap"], ["egypt", "Not Great"], ["ecuador", "Hopeful"], ["spain", "Best"]]],
+  ["Mossy", [["iraq", "Crap"], ["bosnia-herzegovina", "Not Great"], ["japan", "Hopeful"], ["france", "Best"]]],
+  ["Taz", [["qatar", "Crap"], ["scotland", "Not Great"], ["turkey", "Hopeful"], ["england", "Best"]]]
+];
+
+const BUILT_IN_DRAWS = [
+  {
+    id: "recovered-12-player-draw",
+    name: "Recovered 12-player draw",
+    source: "built-in",
+    allocations: RECOVERED_DRAW_ALLOCATIONS
+  }
+];
+
 let state = null;
 let liveData = null;
 const imageCache = new Map();
@@ -274,6 +299,10 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 const els = {
   syncStatus: $("#syncStatus"),
+  savedDrawSelect: $("#savedDrawSelect"),
+  loadSavedDrawButton: $("#loadSavedDrawButton"),
+  saveSnapshotButton: $("#saveSnapshotButton"),
+  newDrawButton: $("#newDrawButton"),
   summaryGrid: $("#summaryGrid"),
   playerCountSelect: $("#playerCountSelect"),
   nameInputs: $("#nameInputs"),
@@ -294,6 +323,8 @@ const els = {
   drawNow: $("#drawNow"),
   drawButton: $("#drawButton"),
   repickButton: $("#repickButton"),
+  customDrawText: $("#customDrawText"),
+  loadCustomDrawButton: $("#loadCustomDrawButton"),
   playerGrid: $("#playerGrid"),
   excludedList: $("#excludedList"),
   refreshLiveButton: $("#refreshLiveButton"),
@@ -361,6 +392,150 @@ function createDefaultState(drawId = getDrawId()) {
     resultsCache: null,
     updatedAt: new Date().toISOString()
   };
+}
+
+function normalizeTeamName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function teamIdFromName(value) {
+  const normalized = normalizeTeamName(value);
+  const aliases = {
+    "usa": "united-states",
+    "us": "united-states",
+    "united-states": "united-states",
+    "bosnia-and-herzegovina": "bosnia-herzegovina",
+    "bosnia-herzegovina": "bosnia-herzegovina",
+    "dr-congo": "dr-congo",
+    "d-r-congo": "dr-congo",
+    "cote-d-ivoire": "ivory-coast",
+    "ivory-coast": "ivory-coast",
+    "cape-verde": "cape-verde",
+    "south-korea": "south-korea",
+    "new-zealand": "new-zealand",
+    "south-africa": "south-africa",
+    "saudi-arabia": "saudi-arabia"
+  };
+  if (aliases[normalized]) return aliases[normalized];
+  const match = DEFAULT_TEAMS.find((team) => normalizeTeamName(team.name) === normalized || team.id === normalized);
+  return match?.id || normalized;
+}
+
+function buildCompletedStateFromAllocations(allocations, drawId = getDrawId()) {
+  const playerCount = allocations.length;
+  const players = allocations.map(([name], index) => ({
+    id: `p${index + 1}`,
+    name: String(name || `Player ${index + 1}`).trim()
+  }));
+  const assignedBatchByTeam = new Map();
+  allocations.forEach(([, picks]) => {
+    picks.forEach(([teamValue, batch]) => {
+      assignedBatchByTeam.set(teamIdFromName(teamValue), batch);
+    });
+  });
+  const teams = DEFAULT_TEAMS.map((team) => ({
+    ...team,
+    batch: assignedBatchByTeam.get(team.id) || team.batch
+  }));
+  const activeTeamIds = teams.map((team) => team.id);
+  const drawSchedule = [];
+  const picks = [];
+  const pickBatches = BATCHES.filter((batch) => allocations.some(([, items]) => items.some(([, itemBatch]) => itemBatch === batch)));
+
+  pickBatches.forEach((batch, roundIndex) => {
+    allocations.forEach(([, playerPicks], playerIndex) => {
+      const pick = playerPicks.find(([, pickBatch]) => pickBatch === batch);
+      if (!pick) return;
+      const teamId = teamIdFromName(pick[0]);
+      const player = players[playerIndex];
+      const pickIndex = drawSchedule.length;
+      drawSchedule.push({
+        pickNumber: pickIndex + 1,
+        round: roundIndex + 1,
+        playerId: player.id,
+        playerIndex,
+        batch
+      });
+      picks.push({
+        id: `saved-${pickIndex + 1}`,
+        pickIndex,
+        playerId: player.id,
+        teamId,
+        batch,
+        drawnAt: new Date().toISOString()
+      });
+    });
+  });
+
+  return normalizeState({
+    schemaVersion: SCHEMA_VERSION,
+    drawId,
+    playerCount,
+    players,
+    teams,
+    excludedTeamIds: [],
+    activeTeamIds,
+    drawSchedule,
+    picks,
+    currentPickIndex: drawSchedule.length,
+    phase: "complete",
+    resultsCache: state?.resultsCache || null,
+    updatedAt: new Date().toISOString()
+  });
+}
+
+function parseCustomDraw(text) {
+  const allocations = [];
+  let current = null;
+  String(text || "").split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    const nameMatch = line.match(/^\*?([^*—-][^*]*)\*?$/);
+    const pickMatch = line.match(/^(.+?)\s+[—-]\s+(.+?)\s+[—-]\s+(.+)$/);
+    if (pickMatch) {
+      if (!current) throw new Error("Add a player name before team lines.");
+      const batch = BATCHES.find((item) => item.toLowerCase() === pickMatch[2].trim().toLowerCase());
+      if (!batch) throw new Error(`Unknown tier: ${pickMatch[2].trim()}`);
+      current[1].push([teamIdFromName(pickMatch[1]), batch]);
+      return;
+    }
+    if (nameMatch) {
+      current = [nameMatch[1].trim(), []];
+      allocations.push(current);
+    }
+  });
+
+  if (!allocations.length || allocations.some(([, picks]) => picks.length === 0)) {
+    throw new Error("Paste at least one player with team allocation lines.");
+  }
+  return allocations;
+}
+
+function savedDrawSnapshots() {
+  try {
+    const items = JSON.parse(localStorage.getItem(SAVED_DRAWS_KEY) || "[]");
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedDrawSnapshots(items) {
+  localStorage.setItem(SAVED_DRAWS_KEY, JSON.stringify(items));
+}
+
+function allocationsToText(allocations) {
+  return allocations.map(([name, picks]) => [
+    `*${name}*`,
+    ...picks.map(([teamId, batch]) => {
+      const team = DEFAULT_TEAMS.find((item) => item.id === teamId);
+      return `${team?.name || teamId} — ${batch} — ${team?.odds || ""}`.trim();
+    })
+  ].join("\n")).join("\n\n");
 }
 
 function normalizeState(input) {
@@ -460,7 +635,24 @@ async function loadState() {
   }
 
   const local = localStorage.getItem(storageKey());
-  state = normalizeState(local ? JSON.parse(local) : createDefaultState());
+  if (local) {
+    const localState = normalizeState(JSON.parse(local));
+    if (getDrawId() === "penalty-test-2" && localState.picks.length === 0) {
+      state = buildCompletedStateFromAllocations(RECOVERED_DRAW_ALLOCATIONS);
+      await saveState("Recovered draw restored");
+      return;
+    }
+    state = localState;
+    return;
+  }
+
+  if (getDrawId() === "penalty-test-2") {
+    state = buildCompletedStateFromAllocations(RECOVERED_DRAW_ALLOCATIONS);
+    await saveState("Recovered draw restored");
+    return;
+  }
+
+  state = normalizeState(createDefaultState());
 }
 
 async function saveState(status = "Saved") {
@@ -509,6 +701,19 @@ function renderSummary() {
       <strong>${value}</strong>
     </article>
   `).join("");
+}
+
+function renderDrawManager() {
+  if (!els.savedDrawSelect) return;
+  const snapshots = savedDrawSnapshots();
+  const options = [
+    ...BUILT_IN_DRAWS.map((draw) => ({ value: `built-in:${draw.id}`, label: draw.name })),
+    ...snapshots.map((draw) => ({ value: `snapshot:${draw.id}`, label: draw.name }))
+  ];
+  els.savedDrawSelect.innerHTML = options.map((option) => `
+    <option value="${escapeAttr(option.value)}">${escapeHtml(option.label)}</option>
+  `).join("");
+  els.loadSavedDrawButton.disabled = options.length === 0;
 }
 
 function renderNames() {
@@ -730,6 +935,7 @@ function renderFixture(match) {
 }
 
 function renderAll() {
+  renderDrawManager();
   renderSummary();
   renderNames();
   renderTeams();
@@ -881,6 +1087,68 @@ function drawTeam(repickOriginalId = null) {
     state.phase = "complete";
   }
   celebrate();
+}
+
+async function applyCompletedDraw(allocations, status = "Draw loaded") {
+  state = buildCompletedStateFromAllocations(allocations);
+  liveData = state.resultsCache;
+  renderAll();
+  await saveState(status);
+  switchPanel("draw");
+}
+
+async function loadSelectedSavedDraw() {
+  const selected = els.savedDrawSelect.value;
+  if (!selected) return;
+  const [source, id] = selected.split(":");
+  if (source === "built-in") {
+    const draw = BUILT_IN_DRAWS.find((item) => item.id === id);
+    if (draw) await applyCompletedDraw(draw.allocations, "Recovered draw loaded");
+    return;
+  }
+
+  const snapshot = savedDrawSnapshots().find((item) => item.id === id);
+  if (!snapshot?.state) return;
+  state = normalizeState(snapshot.state);
+  liveData = state.resultsCache;
+  renderAll();
+  await saveState("Saved draw loaded");
+  switchPanel("draw");
+}
+
+function saveCurrentSnapshot() {
+  const name = window.prompt("Name this saved draw", `${getDrawId()} ${new Date().toLocaleDateString()}`);
+  if (!name) return;
+  const snapshots = savedDrawSnapshots();
+  const next = {
+    id: crypto.randomUUID(),
+    name: name.trim(),
+    state: {
+      ...state,
+      updatedAt: new Date().toISOString()
+    },
+    savedAt: new Date().toISOString()
+  };
+  writeSavedDrawSnapshots([next, ...snapshots].slice(0, 20));
+  renderDrawManager();
+  els.savedDrawSelect.value = `snapshot:${next.id}`;
+  els.syncStatus.textContent = "Snapshot saved in this browser";
+}
+
+function createNewDrawLink() {
+  const entered = window.prompt("New draw name or ID", `draw-${Math.random().toString(36).slice(2, 8)}`);
+  if (!entered) return;
+  const slug = entered.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `draw-${Date.now()}`;
+  window.location.href = `/sweepstake/${encodeURIComponent(slug)}`;
+}
+
+async function loadCustomDraw() {
+  try {
+    const allocations = parseCustomDraw(els.customDrawText.value);
+    await applyCompletedDraw(allocations, "Custom draw loaded");
+  } catch (error) {
+    els.syncStatus.textContent = error.message || "Could not load custom draw";
+  }
 }
 
 function repickLast() {
@@ -1814,6 +2082,11 @@ function bindEvents() {
     button.addEventListener("click", () => switchPanel(button.dataset.step));
   });
 
+  els.loadSavedDrawButton?.addEventListener("click", loadSelectedSavedDraw);
+  els.saveSnapshotButton?.addEventListener("click", saveCurrentSnapshot);
+  els.newDrawButton?.addEventListener("click", createNewDrawLink);
+  els.loadCustomDrawButton?.addEventListener("click", loadCustomDraw);
+
   if (els.penaltyCanvas) {
     els.penaltyCanvas.addEventListener("pointermove", setChallengePointer);
     els.penaltyCanvas.addEventListener("pointerdown", (event) => {
@@ -1989,6 +2262,9 @@ function bindEvents() {
 async function init() {
   await loadState();
   liveData = state.resultsCache;
+  if (els.customDrawText && !els.customDrawText.value.trim()) {
+    els.customDrawText.value = allocationsToText(RECOVERED_DRAW_ALLOCATIONS);
+  }
   randomiseStageImages();
   resetStagePositions();
   renderAll();
