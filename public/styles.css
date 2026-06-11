@@ -471,6 +471,17 @@ tr:last-child td {
   box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
 }
 
+.fixture-card p {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.fixture-card small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .player-card h3 {
   margin-bottom: 0;
 }

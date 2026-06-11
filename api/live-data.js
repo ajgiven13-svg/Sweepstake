@@ -1,5 +1,57 @@
 import { sendJson } from "../lib/http.js";
 
+const STATIC_FIXTURES = [
+  fixture("2026-06-11T17:30:00Z", "Group A", "Mexico", "South Africa", "Mexico City Stadium"),
+  fixture("2026-06-11T20:00:00Z", "Group A", "South Korea", "Czechia", "Estadio Guadalajara"),
+  fixture("2026-06-12T18:30:00Z", "Group B", "Canada", "Bosnia and Herzegovina", "Toronto Stadium"),
+  fixture("2026-06-12T23:30:00Z", "Group D", "United States", "Paraguay", "Los Angeles Stadium"),
+  fixture("2026-06-13T17:00:00Z", "Group C", "Haiti", "Scotland", "Boston Stadium"),
+  fixture("2026-06-13T20:00:00Z", "Group D", "Australia", "Turkey", "BC Place Vancouver"),
+  fixture("2026-06-13T23:00:00Z", "Group C", "Brazil", "Morocco", "New York New Jersey Stadium"),
+  fixture("2026-06-14T00:30:00Z", "Group B", "Qatar", "Switzerland", "San Francisco Bay Area Stadium"),
+  fixture("2026-06-14T17:00:00Z", "Group E", "Ivory Coast", "Ecuador", "Philadelphia Stadium"),
+  fixture("2026-06-14T20:00:00Z", "Group E", "Germany", "Curacao", "Houston Stadium"),
+  fixture("2026-06-14T23:00:00Z", "Group F", "Netherlands", "Japan", "Dallas Stadium"),
+  fixture("2026-06-15T00:30:00Z", "Group F", "Sweden", "Tunisia", "Estadio Monterrey"),
+  fixture("2026-06-15T17:00:00Z", "Group H", "Saudi Arabia", "Uruguay", "Miami Stadium"),
+  fixture("2026-06-15T20:00:00Z", "Group H", "Spain", "Cape Verde", "Atlanta Stadium"),
+  fixture("2026-06-15T23:00:00Z", "Group G", "Iran", "New Zealand", "Los Angeles Stadium"),
+  fixture("2026-06-16T00:30:00Z", "Group G", "Belgium", "Egypt", "Seattle Stadium"),
+  fixture("2026-06-16T17:00:00Z", "Group I", "France", "Senegal", "New York New Jersey Stadium"),
+  fixture("2026-06-16T20:00:00Z", "Group I", "Iraq", "Norway", "Boston Stadium"),
+  fixture("2026-06-16T23:00:00Z", "Group J", "Argentina", "Algeria", "Kansas City Stadium"),
+  fixture("2026-06-17T00:30:00Z", "Group J", "Austria", "Jordan", "San Francisco Bay Area Stadium"),
+  fixture("2026-06-17T17:00:00Z", "Group L", "Ghana", "Panama", "Toronto Stadium"),
+  fixture("2026-06-17T20:00:00Z", "Group L", "England", "Croatia", "Dallas Stadium"),
+  fixture("2026-06-17T23:00:00Z", "Group K", "Portugal", "DR Congo", "Houston Stadium"),
+  fixture("2026-06-18T00:30:00Z", "Group K", "Uzbekistan", "Colombia", "Mexico City Stadium")
+];
+
+function fixture(utcDate, group, home, away, venue) {
+  return {
+    id: `static-${utcDate}-${home}-${away}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    utcDate,
+    group,
+    venue,
+    status: "SCHEDULED",
+    source: "static",
+    homeTeam: {
+      name: home,
+      shortName: home
+    },
+    awayTeam: {
+      name: away,
+      shortName: away
+    },
+    score: {
+      fullTime: {
+        home: null,
+        away: null
+      }
+    }
+  };
+}
+
 async function fetchJson(url, headers = {}) {
   const response = await fetch(url, { headers });
   if (!response.ok) {
@@ -15,22 +67,18 @@ export default async function handler(req, res) {
   }
 
   const hasFootballData = Boolean(process.env.FOOTBALL_DATA_TOKEN);
-  const hasOdds = Boolean(process.env.ODDS_API_TOKEN);
   const payload = {
     ok: true,
-    providerAvailable: hasFootballData || hasOdds,
+    providerAvailable: true,
+    fixturesSource: hasFootballData ? "football-data" : "static",
     fixtures: [],
     standings: [],
-    odds: [],
     messages: [],
     syncedAt: new Date().toISOString()
   };
 
   if (!hasFootballData) {
-    payload.messages.push("FOOTBALL_DATA_TOKEN is not configured, so fixtures and group tables are unavailable.");
-  }
-  if (!hasOdds) {
-    payload.messages.push("ODDS_API_TOKEN is not configured, so outright winner odds are unavailable.");
+    payload.messages.push("Using the static published fixture schedule. Add FOOTBALL_DATA_TOKEN later if live scores are needed.");
   }
 
   try {
@@ -44,17 +92,9 @@ export default async function handler(req, res) {
     payload.messages.push(`Football-data sync failed: ${error.message}`);
   }
 
-  try {
-    if (hasOdds) {
-      const oddsUrl = new URL("https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup_winner/odds");
-      oddsUrl.searchParams.set("apiKey", process.env.ODDS_API_TOKEN);
-      oddsUrl.searchParams.set("regions", "uk,eu,us");
-      oddsUrl.searchParams.set("markets", "outrights");
-      oddsUrl.searchParams.set("oddsFormat", "decimal");
-      payload.odds = await fetchJson(oddsUrl);
-    }
-  } catch (error) {
-    payload.messages.push(`Odds sync failed: ${error.message}`);
+  if (!payload.fixtures.length) {
+    payload.fixturesSource = "static";
+    payload.fixtures = STATIC_FIXTURES;
   }
 
   sendJson(res, 200, payload);

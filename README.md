@@ -58,14 +58,13 @@ UPSTASH_REDIS_REST_TOKEN
 
 Without those variables, the app still loads, but serverless memory is not durable enough for a shared public draw. For the link you send to friends, configure Upstash Redis or Vercel KV first.
 
-Optional live data variables:
+Optional live data variable:
 
 ```text
 FOOTBALL_DATA_TOKEN
-ODDS_API_TOKEN
 ```
 
-If these are missing, the draw still works and the results area shows a provider-unavailable message.
+If this is missing, the draw still works and the results area uses the baked-in published fixture schedule. Add `FOOTBALL_DATA_TOKEN` later if you want live scores from Football-Data.
 
 ## GitHub Setup
 

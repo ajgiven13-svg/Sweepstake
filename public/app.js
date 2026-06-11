@@ -515,10 +515,11 @@ function renderGroupTables() {
 function renderFixture(match) {
   const home = match.homeTeam?.shortName || match.homeTeam?.name || "TBC";
   const away = match.awayTeam?.shortName || match.awayTeam?.name || "TBC";
+  const detail = [match.group, match.venue].filter(Boolean).join(" · ");
   const score = match.score?.fullTime
     ? `${match.score.fullTime.home ?? "-"}-${match.score.fullTime.away ?? "-"}`
     : new Date(match.utcDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return `<p><strong>${home}</strong> ${score} <strong>${away}</strong></p>`;
+  return `<p><strong>${home}</strong> ${score} <strong>${away}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}</p>`;
 }
 
 function renderAll() {
