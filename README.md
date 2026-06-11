@@ -7,12 +7,13 @@ The app runs locally at `http://localhost:8000/` and is structured for Vercel de
 ## Features
 
 - 48-team World Cup 2026 pool
-- 16 Good, 16 OK, and 16 Bad teams
+- 4 equal 12-team tiers: Crap, Not Great, Hopeful, and Best
 - 8 to 12 players
 - Equal teams per player
 - Required exclusions for 9, 10, and 11 players
 - Open shared access: anyone with the link can view and edit
-- Draw schedule that favours Bad, then OK, then Good batches
+- Draw schedule that favours Crap, then Not Great, then Hopeful, then Best tiers
+- Perfect 12-player balance: each player gets one team from each tier
 - Repick-last behaviour
 - Static outright tournament-winner odds
 - Local browser backup through `localStorage`
@@ -92,7 +93,7 @@ After pushing, import the repository in Vercel, add the environment variables ab
 Anyone with the deployed link can:
 
 - enter player names
-- edit team batches before the draw
+- edit team tiers before the draw
 - choose exclusions before the draw
 - draw teams
 - repick the latest team

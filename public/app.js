@@ -1,7 +1,8 @@
-const BATCHES = ["Bad", "OK", "Good"];
+const BATCHES = ["Crap", "Not Great", "Hopeful", "Best"];
 const PLAYER_COUNTS = [8, 9, 10, 11, 12];
 const TOTAL_TEAMS = 48;
-const SCHEMA_VERSION = 3;
+const TEAMS_PER_BATCH = TOTAL_TEAMS / BATCHES.length;
+const SCHEMA_VERSION = 4;
 const STORAGE_KEY = "world-cup-2026-sweepstake-state";
 const AUDIO_CLIPS = [
   "/assets/audio/yes-yes-yes.mp3",
@@ -65,54 +66,54 @@ const STATIC_ODDS = {
 };
 
 const DEFAULT_TEAMS = [
-  ["mexico", "🇲🇽", "Mexico", "A", "A1", 1, 15, "Good"],
-  ["south-africa", "🇿🇦", "South Africa", "A", "A2", 3, 61, "Bad"],
-  ["south-korea", "🇰🇷", "South Korea", "A", "A3", 2, 22, "OK"],
-  ["czechia", "🇨🇿", "Czechia", "A", "A4", 4, 44, "Bad"],
-  ["canada", "🇨🇦", "Canada", "B", "B1", 1, 27, "OK"],
-  ["bosnia-herzegovina", "🇧🇦", "Bosnia and Herzegovina", "B", "B2", 4, 71, "Bad"],
-  ["qatar", "🇶🇦", "Qatar", "B", "B3", 3, 51, "Bad"],
-  ["switzerland", "🇨🇭", "Switzerland", "B", "B4", 2, 17, "Good"],
-  ["brazil", "🇧🇷", "Brazil", "C", "C1", 1, 5, "Good"],
-  ["morocco", "🇲🇦", "Morocco", "C", "C2", 2, 11, "Good"],
-  ["haiti", "🇭🇹", "Haiti", "C", "C3", 4, 84, "Bad"],
-  ["scotland", "🏴", "Scotland", "C", "C4", 3, 36, "OK"],
-  ["united-states", "🇺🇸", "United States", "D", "D1", 1, 14, "Good"],
-  ["paraguay", "🇵🇾", "Paraguay", "D", "D2", 3, 39, "OK"],
-  ["australia", "🇦🇺", "Australia", "D", "D3", 2, 26, "OK"],
-  ["turkey", "🇹🇷", "Turkey", "D", "D4", 4, 25, "OK"],
-  ["germany", "🇩🇪", "Germany", "E", "E1", 1, 9, "Good"],
-  ["curacao", "🇨🇼", "Curacao", "E", "E2", 4, 82, "Bad"],
-  ["ivory-coast", "🇨🇮", "Ivory Coast", "E", "E3", 3, 42, "Bad"],
-  ["ecuador", "🇪🇨", "Ecuador", "E", "E4", 2, 23, "OK"],
-  ["netherlands", "🇳🇱", "Netherlands", "F", "F1", 1, 7, "Good"],
-  ["japan", "🇯🇵", "Japan", "F", "F2", 2, 18, "OK"],
-  ["sweden", "🇸🇪", "Sweden", "F", "F3", 4, 43, "Bad"],
-  ["tunisia", "🇹🇳", "Tunisia", "F", "F4", 3, 40, "OK"],
-  ["belgium", "🇧🇪", "Belgium", "G", "G1", 1, 8, "Good"],
-  ["egypt", "🇪🇬", "Egypt", "G", "G2", 3, 34, "OK"],
-  ["iran", "🇮🇷", "Iran", "G", "G3", 2, 20, "OK"],
-  ["new-zealand", "🇳🇿", "New Zealand", "G", "G4", 4, 86, "Bad"],
-  ["spain", "🇪🇸", "Spain", "H", "H1", 1, 1, "Good"],
-  ["cape-verde", "🇨🇻", "Cape Verde", "H", "H2", 4, 68, "Bad"],
-  ["saudi-arabia", "🇸🇦", "Saudi Arabia", "H", "H3", 3, 60, "Bad"],
-  ["uruguay", "🇺🇾", "Uruguay", "H", "H4", 2, 16, "Good"],
-  ["france", "🇫🇷", "France", "I", "I1", 1, 3, "Good"],
-  ["senegal", "🇸🇳", "Senegal", "I", "I2", 2, 19, "OK"],
-  ["iraq", "🇮🇶", "Iraq", "I", "I3", 4, 58, "Bad"],
-  ["norway", "🇳🇴", "Norway", "I", "I4", 3, 29, "OK"],
-  ["argentina", "🇦🇷", "Argentina", "J", "J1", 1, 2, "Good"],
-  ["algeria", "🇩🇿", "Algeria", "J", "J2", 3, 35, "OK"],
-  ["austria", "🇦🇹", "Austria", "J", "J3", 2, 24, "OK"],
-  ["jordan", "🇯🇴", "Jordan", "J", "J4", 4, 66, "Bad"],
-  ["portugal", "🇵🇹", "Portugal", "K", "K1", 1, 6, "Good"],
-  ["dr-congo", "🇨🇩", "DR Congo", "K", "K2", 4, 56, "Bad"],
-  ["uzbekistan", "🇺🇿", "Uzbekistan", "K", "K3", 3, 50, "Bad"],
-  ["colombia", "🇨🇴", "Colombia", "K", "K4", 2, 13, "Good"],
-  ["england", "🏴", "England", "L", "L1", 1, 4, "Good"],
-  ["croatia", "🇭🇷", "Croatia", "L", "L2", 2, 10, "Good"],
-  ["ghana", "🇬🇭", "Ghana", "L", "L3", 4, 72, "Bad"],
-  ["panama", "🇵🇦", "Panama", "L", "L4", 3, 30, "OK"]
+  ["mexico", "🇲🇽", "Mexico", "A", "A1", 1, 15, "Hopeful"],
+  ["south-africa", "🇿🇦", "South Africa", "A", "A2", 3, 61, "Crap"],
+  ["south-korea", "🇰🇷", "South Korea", "A", "A3", 2, 22, "Not Great"],
+  ["czechia", "🇨🇿", "Czechia", "A", "A4", 4, 44, "Hopeful"],
+  ["canada", "🇨🇦", "Canada", "B", "B1", 1, 27, "Not Great"],
+  ["bosnia-herzegovina", "🇧🇦", "Bosnia and Herzegovina", "B", "B2", 4, 71, "Not Great"],
+  ["qatar", "🇶🇦", "Qatar", "B", "B3", 3, 51, "Crap"],
+  ["switzerland", "🇨🇭", "Switzerland", "B", "B4", 2, 17, "Hopeful"],
+  ["brazil", "🇧🇷", "Brazil", "C", "C1", 1, 5, "Best"],
+  ["morocco", "🇲🇦", "Morocco", "C", "C2", 2, 11, "Hopeful"],
+  ["haiti", "🇭🇹", "Haiti", "C", "C3", 4, 84, "Crap"],
+  ["scotland", "🏴", "Scotland", "C", "C4", 3, 36, "Not Great"],
+  ["united-states", "🇺🇸", "United States", "D", "D1", 1, 14, "Best"],
+  ["paraguay", "🇵🇾", "Paraguay", "D", "D2", 3, 39, "Not Great"],
+  ["australia", "🇦🇺", "Australia", "D", "D3", 2, 26, "Not Great"],
+  ["turkey", "🇹🇷", "Turkey", "D", "D4", 4, 25, "Hopeful"],
+  ["germany", "🇩🇪", "Germany", "E", "E1", 1, 9, "Best"],
+  ["curacao", "🇨🇼", "Curacao", "E", "E2", 4, 82, "Crap"],
+  ["ivory-coast", "🇨🇮", "Ivory Coast", "E", "E3", 3, 42, "Not Great"],
+  ["ecuador", "🇪🇨", "Ecuador", "E", "E4", 2, 23, "Hopeful"],
+  ["netherlands", "🇳🇱", "Netherlands", "F", "F1", 1, 7, "Best"],
+  ["japan", "🇯🇵", "Japan", "F", "F2", 2, 18, "Hopeful"],
+  ["sweden", "🇸🇪", "Sweden", "F", "F3", 4, 43, "Hopeful"],
+  ["tunisia", "🇹🇳", "Tunisia", "F", "F4", 3, 40, "Crap"],
+  ["belgium", "🇧🇪", "Belgium", "G", "G1", 1, 8, "Best"],
+  ["egypt", "🇪🇬", "Egypt", "G", "G2", 3, 34, "Not Great"],
+  ["iran", "🇮🇷", "Iran", "G", "G3", 2, 20, "Not Great"],
+  ["new-zealand", "🇳🇿", "New Zealand", "G", "G4", 4, 86, "Crap"],
+  ["spain", "🇪🇸", "Spain", "H", "H1", 1, 1, "Best"],
+  ["cape-verde", "🇨🇻", "Cape Verde", "H", "H2", 4, 68, "Crap"],
+  ["saudi-arabia", "🇸🇦", "Saudi Arabia", "H", "H3", 3, 60, "Not Great"],
+  ["uruguay", "🇺🇾", "Uruguay", "H", "H4", 2, 16, "Hopeful"],
+  ["france", "🇫🇷", "France", "I", "I1", 1, 3, "Best"],
+  ["senegal", "🇸🇳", "Senegal", "I", "I2", 2, 19, "Hopeful"],
+  ["iraq", "🇮🇶", "Iraq", "I", "I3", 4, 58, "Crap"],
+  ["norway", "🇳🇴", "Norway", "I", "I4", 3, 29, "Best"],
+  ["argentina", "🇦🇷", "Argentina", "J", "J1", 1, 2, "Best"],
+  ["algeria", "🇩🇿", "Algeria", "J", "J2", 3, 35, "Not Great"],
+  ["austria", "🇦🇹", "Austria", "J", "J3", 2, 24, "Hopeful"],
+  ["jordan", "🇯🇴", "Jordan", "J", "J4", 4, 66, "Crap"],
+  ["portugal", "🇵🇹", "Portugal", "K", "K1", 1, 6, "Best"],
+  ["dr-congo", "🇨🇩", "DR Congo", "K", "K2", 4, 56, "Not Great"],
+  ["uzbekistan", "🇺🇿", "Uzbekistan", "K", "K3", 3, 50, "Crap"],
+  ["colombia", "🇨🇴", "Colombia", "K", "K4", 2, 13, "Best"],
+  ["england", "🏴", "England", "L", "L1", 1, 4, "Best"],
+  ["croatia", "🇭🇷", "Croatia", "L", "L2", 2, 10, "Hopeful"],
+  ["ghana", "🇬🇭", "Ghana", "L", "L3", 4, 72, "Crap"],
+  ["panama", "🇵🇦", "Panama", "L", "L4", 3, 30, "Crap"]
 ].map(([id, flag, name, group, drawPosition, pot, ranking, batch]) => ({
   id,
   flag,
@@ -262,13 +263,25 @@ function fullBatchCounts() {
   }, {});
 }
 
+function formatBatchCounts(counts) {
+  return BATCHES.map((batch) => `${batch} ${counts[batch] || 0}`).join(", ");
+}
+
+function formatBatchSummary(counts) {
+  return BATCHES.map((batch) => counts[batch] || 0).join(" / ");
+}
+
+function batchClass(batch) {
+  return batch.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 function picksForPlayer(playerId) {
   return state.picks.filter((pick) => pick.playerId === playerId);
 }
 
 function validateTeams() {
   const counts = fullBatchCounts();
-  const balanced = BATCHES.every((batch) => counts[batch] === 16);
+  const balanced = BATCHES.every((batch) => counts[batch] === TEAMS_PER_BATCH);
   const total = state.teams.length === TOTAL_TEAMS;
   return { counts, valid: balanced && total };
 }
@@ -334,7 +347,7 @@ function renderSummary() {
     ["Active teams", state.activeTeamIds.length || alloc.activeTeamCount],
     ["Excluded teams", `${excluded} / ${alloc.excludedTeamCount}`],
     ["Teams per player", alloc.teamsPerPlayer],
-    ["Good / OK / Bad active", `${activeCounts.Good || 0} / ${activeCounts.OK || 0} / ${activeCounts.Bad || 0}`],
+    [`${BATCHES.join(" / ")} active`, formatBatchSummary(activeCounts)],
     ["Draw progress", `${completed} / ${state.drawSchedule.length || alloc.activeTeamCount}`]
   ];
   els.summaryGrid.innerHTML = cards.map(([label, value]) => `
@@ -362,8 +375,8 @@ function renderTeams() {
   const validation = validateTeams();
   els.teamValidation.className = `status-strip ${validation.valid ? "ok" : "warn"}`;
   els.teamValidation.innerHTML = validation.valid
-    ? `Team pool is valid: 16 Good, 16 OK, 16 Bad.`
-    : `Team pool needs 16 in each batch. Current: ${BATCHES.map((batch) => `${batch} ${validation.counts[batch] || 0}`).join(", ")}.`;
+    ? `Team pool is valid: ${TEAMS_PER_BATCH} teams in each tier.`
+    : `Team pool needs ${TEAMS_PER_BATCH} in each tier. Current: ${formatBatchCounts(validation.counts)}.`;
 
   els.teamTableBody.innerHTML = state.teams.map((team) => `
     <tr>
@@ -394,7 +407,7 @@ function renderExclusions() {
   els.exclusionStatus.className = `status-strip ${exact ? "ok" : "warn"}`;
   els.exclusionStatus.innerHTML = skipped
     ? `No exclusions are needed for ${state.playerCount} players.`
-    : `${alloc.excludedTeamCount} teams must be excluded. ${Math.max(remaining, 0)} still required. Active batches: ${BATCHES.map((batch) => `${batch} ${imbalance.counts[batch] || 0}`).join(", ")}.${imbalance.unbalanced ? " This active pool is noticeably unbalanced." : ""}`;
+    : `${alloc.excludedTeamCount} teams must be excluded. ${Math.max(remaining, 0)} still required. Active tiers: ${formatBatchCounts(imbalance.counts)}.${imbalance.unbalanced ? " This active pool is noticeably unbalanced." : ""}`;
 
   els.exclusionGrid.innerHTML = state.teams
     .slice()
@@ -424,7 +437,7 @@ function renderDraw() {
     <article class="now-card">
       <span>Pick ${state.currentPickIndex + 1} of ${state.drawSchedule.length}</span>
       <strong>${playerById(current.playerId)?.name || "Player"} draws from ${current.batch}</strong>
-      <small>${availableTeamIds(current.batch).length} teams remain in this batch</small>
+      <small>${availableTeamIds(current.batch).length} teams remain in this tier</small>
     </article>
   ` : `
     <article class="now-card">
@@ -447,7 +460,7 @@ function renderDraw() {
         <div class="pick-list">
           ${picks.map((pick) => {
             const team = teamById(pick.teamId);
-            return `<span class="pick-chip ${pick.batch.toLowerCase()}">${team?.flag || ""} ${team?.name || "Unknown"} <small>${pick.batch} · ${team?.odds || "odds n/a"}</small></span>`;
+            return `<span class="pick-chip ${batchClass(pick.batch)}">${team?.flag || ""} ${team?.name || "Unknown"} <small>${pick.batch} · ${team?.odds || "odds n/a"}</small></span>`;
           }).join("") || "<em>No picks yet</em>"}
         </div>
       </article>
@@ -585,7 +598,7 @@ function buildDrawSchedule() {
   const alloc = allocation();
   const activeCounts = countsByBatch();
   const quotas = buildPlayerBatchQuotas(activeCounts, state.playerCount, alloc.teamsPerPlayer);
-  const used = state.players.map(() => ({ Bad: 0, OK: 0, Good: 0 }));
+  const used = state.players.map(() => Object.fromEntries(BATCHES.map((batch) => [batch, 0])));
   const schedule = [];
 
   for (let round = 0; round < alloc.teamsPerPlayer; round += 1) {
@@ -612,8 +625,13 @@ function buildDrawSchedule() {
 }
 
 function buildPlayerBatchQuotas(counts, playerCount, teamsPerPlayer) {
-  const quotas = Array.from({ length: playerCount }, () => ({ Bad: 0, OK: 0, Good: 0, total: 0 }));
-  const offsets = { Bad: 0, OK: Math.floor(playerCount / 3), Good: Math.floor((playerCount * 2) / 3) };
+  const quotas = Array.from({ length: playerCount }, () => ({
+    ...Object.fromEntries(BATCHES.map((batch) => [batch, 0])),
+    total: 0
+  }));
+  const offsets = Object.fromEntries(
+    BATCHES.map((batch, index) => [batch, Math.floor((playerCount * index) / BATCHES.length)])
+  );
 
   BATCHES.forEach((batch) => {
     const order = Array.from({ length: playerCount }, (_, index) => (index + offsets[batch]) % playerCount);
@@ -630,7 +648,7 @@ function buildPlayerBatchQuotas(counts, playerCount, teamsPerPlayer) {
   });
 
   if (!quotas.every((quota) => quota.total === teamsPerPlayer)) {
-    throw new Error("The active batch totals could not be divided evenly across players.");
+    throw new Error("The active tier totals could not be divided evenly across players.");
   }
 
   return quotas;
@@ -799,7 +817,7 @@ function bindEvents() {
 
   els.goExclusionsButton.addEventListener("click", async () => {
     if (!validateTeams().valid) {
-      els.syncStatus.textContent = "Fix team batch balance first";
+      els.syncStatus.textContent = "Fix team tier balance first";
       return;
     }
     const next = allocation().excludedTeamCount === 0 ? "draw" : "exclusions";

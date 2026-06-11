@@ -518,15 +518,19 @@ tr:last-child td {
   border: 1px solid rgba(22, 21, 18, 0.08);
 }
 
-.pick-chip.bad {
+.pick-chip.crap {
   background: #ffe1db;
 }
 
-.pick-chip.ok {
+.pick-chip.not-great {
   background: #dff1f5;
 }
 
-.pick-chip.good {
+.pick-chip.hopeful {
+  background: #fff1bd;
+}
+
+.pick-chip.best {
   background: #e2f6da;
 }
 
