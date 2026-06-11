@@ -560,6 +560,104 @@ tr:last-child td {
   border: 0;
 }
 
+.penalty-wrap {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.penalty-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.penalty-scoreboard article {
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #fffef8;
+  padding: 12px 14px;
+  box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
+}
+
+.penalty-scoreboard span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.penalty-scoreboard strong {
+  display: block;
+  margin-top: 6px;
+  font-size: clamp(1.4rem, 3vw, 2.25rem);
+}
+
+.penalty-stage {
+  position: relative;
+  overflow: hidden;
+  border: 3px solid rgba(22, 21, 18, 0.2);
+  border-radius: 8px;
+  background: #0b7b4a;
+  box-shadow: var(--shadow);
+}
+
+#penaltyCanvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 12 / 7;
+  max-height: 620px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.penalty-goal-flash {
+  position: absolute;
+  inset: 18px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--gold);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(6, 59, 42, 0.88), rgba(190, 36, 50, 0.82)),
+    rgba(8, 15, 12, 0.82);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.72);
+  transition: opacity 140ms ease, transform 520ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.penalty-goal-flash.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.penalty-goal-flash img {
+  width: min(460px, 88%);
+  max-height: 84%;
+  border-radius: 8px;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.penalty-goal-flash span {
+  display: none;
+  color: var(--gold);
+  font-size: clamp(4rem, 16vw, 9rem);
+  font-weight: 1000;
+  text-shadow: 5px 5px 0 var(--black);
+}
+
+.penalty-goal-flash.asset-missing img {
+  display: none;
+}
+
+.penalty-goal-flash.asset-missing span {
+  display: block;
+}
+
 .goal-overlay {
   position: fixed;
   inset: 0;
@@ -593,6 +691,7 @@ tr:last-child td {
   .team-card-grid,
   .player-grid,
   .fixtures-grid,
+  .penalty-scoreboard,
   #groupTables {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -616,6 +715,7 @@ tr:last-child td {
   .team-card-grid,
   .player-grid,
   .fixtures-grid,
+  .penalty-scoreboard,
   #groupTables {
     grid-template-columns: 1fr;
   }

@@ -13,6 +13,18 @@ const AUDIO_CLIPS = [
   "/assets/audio/did-you-see-that.mp3",
   "/assets/audio/gooooaaallll.mp3"
 ];
+const PENALTY_GOAL_AUDIO = "/assets/audio/gooooaaallll.mp3";
+const PENALTY_FIELD = {
+  width: 720,
+  height: 420,
+  goalLeft: 150,
+  goalRight: 570,
+  goalTop: 58,
+  goalBottom: 214,
+  keeperY: 128,
+  spotX: 360,
+  spotY: 360
+};
 
 const STATIC_ODDS = {
   spain: "4/1",
@@ -129,6 +141,36 @@ const DEFAULT_TEAMS = [
 
 let state = null;
 let liveData = null;
+const penaltyGame = {
+  score: 0,
+  shots: 0,
+  message: "Aim",
+  resultTimer: 0,
+  flashTimer: 0,
+  lastFrame: 0,
+  aim: {
+    x: PENALTY_FIELD.spotX,
+    y: 128
+  },
+  keeper: {
+    x: PENALTY_FIELD.spotX,
+    y: PENALTY_FIELD.keeperY,
+    width: 92,
+    height: 34,
+    direction: 1,
+    speed: 138
+  },
+  ball: {
+    x: PENALTY_FIELD.spotX,
+    y: PENALTY_FIELD.spotY,
+    radius: 10,
+    vx: 0,
+    vy: 0,
+    moving: false,
+    targetX: PENALTY_FIELD.spotX,
+    targetY: 128
+  }
+};
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -161,7 +203,13 @@ const els = {
   liveStatus: $("#liveStatus"),
   fixturesGrid: $("#fixturesGrid"),
   groupTables: $("#groupTables"),
-  goalOverlay: $("#goalOverlay")
+  goalOverlay: $("#goalOverlay"),
+  penaltyCanvas: $("#penaltyCanvas"),
+  penaltyScore: $("#penaltyScore"),
+  penaltyShots: $("#penaltyShots"),
+  penaltyMessage: $("#penaltyMessage"),
+  penaltyResetButton: $("#penaltyResetButton"),
+  penaltyGoalFlash: $("#penaltyGoalFlash")
 };
 
 function getDrawId() {
@@ -505,6 +553,14 @@ function renderResults() {
   els.groupTables.innerHTML = BATCHES.length ? renderGroupTables() : "";
 }
 
+function renderPenaltyGame() {
+  if (!els.penaltyScore) return;
+  els.penaltyScore.textContent = penaltyGame.score;
+  els.penaltyShots.textContent = penaltyGame.shots;
+  els.penaltyMessage.textContent = penaltyGame.message;
+  els.penaltyGoalFlash?.classList.toggle("show", penaltyGame.flashTimer > 0);
+}
+
 function renderGroupTables() {
   const groups = [...new Set(state.teams.map((team) => team.group))].sort();
   return groups.map((group) => `
@@ -542,6 +598,7 @@ function renderAll() {
   renderExclusions();
   renderDraw();
   renderResults();
+  renderPenaltyGame();
 }
 
 function syncPlayerInputs() {
@@ -709,6 +766,234 @@ function celebrate() {
   });
 }
 
+function penaltyResetBall() {
+  penaltyGame.ball.x = PENALTY_FIELD.spotX;
+  penaltyGame.ball.y = PENALTY_FIELD.spotY;
+  penaltyGame.ball.vx = 0;
+  penaltyGame.ball.vy = 0;
+  penaltyGame.ball.moving = false;
+  penaltyGame.message = "Aim";
+}
+
+function penaltyResetScore() {
+  penaltyGame.score = 0;
+  penaltyGame.shots = 0;
+  penaltyGame.resultTimer = 0;
+  penaltyGame.flashTimer = 0;
+  penaltyResetBall();
+  renderPenaltyGame();
+}
+
+function penaltyPointerPosition(event) {
+  const rect = els.penaltyCanvas.getBoundingClientRect();
+  const point = event.touches?.[0] || event;
+  const x = ((point.clientX - rect.left) / rect.width) * PENALTY_FIELD.width;
+  const y = ((point.clientY - rect.top) / rect.height) * PENALTY_FIELD.height;
+  return {
+    x: Math.max(PENALTY_FIELD.goalLeft - 68, Math.min(PENALTY_FIELD.goalRight + 68, x)),
+    y: Math.max(PENALTY_FIELD.goalTop + 12, Math.min(PENALTY_FIELD.goalBottom + 46, y))
+  };
+}
+
+function penaltySetAim(event) {
+  const point = penaltyPointerPosition(event);
+  penaltyGame.aim.x = point.x;
+  penaltyGame.aim.y = point.y;
+}
+
+function penaltyKick(event) {
+  event.preventDefault();
+  if (penaltyGame.ball.moving || penaltyGame.resultTimer > 0) return;
+  penaltySetAim(event);
+
+  const dx = penaltyGame.aim.x - penaltyGame.ball.x;
+  const dy = penaltyGame.aim.y - penaltyGame.ball.y;
+  const distance = Math.hypot(dx, dy) || 1;
+  const speed = 560;
+
+  penaltyGame.ball.targetX = penaltyGame.aim.x;
+  penaltyGame.ball.targetY = penaltyGame.aim.y;
+  penaltyGame.ball.vx = (dx / distance) * speed;
+  penaltyGame.ball.vy = (dy / distance) * speed;
+  penaltyGame.ball.moving = true;
+  penaltyGame.message = "Shot";
+  renderPenaltyGame();
+}
+
+function penaltyPlayGoal() {
+  const audio = new Audio(PENALTY_GOAL_AUDIO);
+  audio.volume = 0.55;
+  audio.play().catch(() => {});
+  penaltyGame.flashTimer = 1.35;
+}
+
+function penaltyFinish(result) {
+  penaltyGame.ball.moving = false;
+  penaltyGame.shots += 1;
+  penaltyGame.resultTimer = 0.85;
+
+  if (result === "goal") {
+    penaltyGame.score += 1;
+    penaltyGame.message = "GOAL!";
+    penaltyPlayGoal();
+  } else if (result === "saved") {
+    penaltyGame.message = "Saved";
+  } else {
+    penaltyGame.message = "Wide";
+  }
+
+  renderPenaltyGame();
+}
+
+function penaltyGoalResult() {
+  const targetInsideGoal = penaltyGame.ball.targetX >= PENALTY_FIELD.goalLeft
+    && penaltyGame.ball.targetX <= PENALTY_FIELD.goalRight
+    && penaltyGame.ball.targetY >= PENALTY_FIELD.goalTop
+    && penaltyGame.ball.targetY <= PENALTY_FIELD.goalBottom;
+  return targetInsideGoal ? "goal" : "wide";
+}
+
+function penaltyKeeperIntersectsBall() {
+  const keeper = penaltyGame.keeper;
+  const ball = penaltyGame.ball;
+  return ball.x + ball.radius > keeper.x - keeper.width / 2
+    && ball.x - ball.radius < keeper.x + keeper.width / 2
+    && ball.y + ball.radius > keeper.y - keeper.height / 2
+    && ball.y - ball.radius < keeper.y + keeper.height / 2;
+}
+
+function penaltyUpdate(deltaSeconds) {
+  const keeper = penaltyGame.keeper;
+  const ball = penaltyGame.ball;
+  const keeperMin = PENALTY_FIELD.goalLeft + keeper.width / 2;
+  const keeperMax = PENALTY_FIELD.goalRight - keeper.width / 2;
+
+  if (ball.moving && ball.y < 280 && Math.abs(ball.x - keeper.x) < 180) {
+    keeper.x += Math.sign(ball.x - keeper.x || 1) * 320 * deltaSeconds;
+  } else {
+    keeper.x += keeper.direction * keeper.speed * deltaSeconds;
+  }
+
+  if (keeper.x <= keeperMin || keeper.x >= keeperMax) {
+    keeper.direction *= -1;
+    keeper.x = Math.max(keeperMin, Math.min(keeperMax, keeper.x));
+  }
+
+  if (ball.moving) {
+    ball.x += ball.vx * deltaSeconds;
+    ball.y += ball.vy * deltaSeconds;
+
+    if (penaltyKeeperIntersectsBall()) {
+      penaltyFinish("saved");
+      return;
+    }
+
+    if (Math.hypot(ball.x - ball.targetX, ball.y - ball.targetY) < 14 || ball.y <= PENALTY_FIELD.goalTop) {
+      penaltyFinish(penaltyGoalResult());
+      return;
+    }
+  }
+
+  if (penaltyGame.resultTimer > 0) {
+    penaltyGame.resultTimer -= deltaSeconds;
+    if (penaltyGame.resultTimer <= 0) {
+      penaltyResetBall();
+      renderPenaltyGame();
+    }
+  }
+
+  if (penaltyGame.flashTimer > 0) {
+    penaltyGame.flashTimer -= deltaSeconds;
+    if (penaltyGame.flashTimer <= 0) {
+      penaltyGame.flashTimer = 0;
+      renderPenaltyGame();
+    }
+  }
+}
+
+function penaltyDraw() {
+  if (!els.penaltyCanvas) return;
+  const ctx = els.penaltyCanvas.getContext("2d");
+  const { width, height, goalLeft, goalRight, goalTop, goalBottom, spotX, spotY } = PENALTY_FIELD;
+  const keeper = penaltyGame.keeper;
+  const ball = penaltyGame.ball;
+  const aim = penaltyGame.aim;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#0b7b4a";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#13955d";
+  for (let x = 0; x < width; x += 80) {
+    ctx.fillRect(x, 0, 40, height);
+  }
+
+  ctx.strokeStyle = "#fff7d1";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(goalLeft, goalTop, goalRight - goalLeft, goalBottom - goalTop);
+  ctx.beginPath();
+  ctx.moveTo(goalLeft, goalBottom);
+  ctx.lineTo(goalLeft - 62, goalBottom + 54);
+  ctx.lineTo(goalRight + 62, goalBottom + 54);
+  ctx.lineTo(goalRight, goalBottom);
+  ctx.stroke();
+
+  ctx.lineWidth = 4;
+  ctx.strokeRect(96, goalBottom + 54, width - 192, 132);
+  ctx.beginPath();
+  ctx.arc(spotX, spotY, 6, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff7d1";
+  ctx.fill();
+
+  ctx.setLineDash([10, 8]);
+  ctx.strokeStyle = "rgba(255, 247, 209, 0.78)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(spotX, spotY);
+  ctx.lineTo(aim.x, aim.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = "#ffd45a";
+  ctx.strokeStyle = "#161512";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(aim.x, aim.y, 13, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#161512";
+  ctx.fillRect(keeper.x - keeper.width / 2, keeper.y - keeper.height / 2, keeper.width, keeper.height);
+  ctx.fillStyle = "#f8e7af";
+  ctx.fillRect(keeper.x - 12, keeper.y - 32, 24, 18);
+  ctx.fillStyle = "#be2432";
+  ctx.fillRect(keeper.x - keeper.width / 2 - 16, keeper.y - 9, 16, 18);
+  ctx.fillRect(keeper.x + keeper.width / 2, keeper.y - 9, 16, 18);
+
+  ctx.fillStyle = "#fffaf0";
+  ctx.strokeStyle = "#161512";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = "#161512";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(ball.x - 6, ball.y);
+  ctx.lineTo(ball.x + 6, ball.y);
+  ctx.moveTo(ball.x, ball.y - 6);
+  ctx.lineTo(ball.x, ball.y + 6);
+  ctx.stroke();
+}
+
+function penaltyLoop(timestamp = 0) {
+  const deltaSeconds = Math.min((timestamp - penaltyGame.lastFrame) / 1000 || 0, 0.04);
+  penaltyGame.lastFrame = timestamp;
+  penaltyUpdate(deltaSeconds);
+  penaltyDraw();
+  window.requestAnimationFrame(penaltyLoop);
+}
+
 async function syncLiveData() {
   els.liveStatus.className = "status-strip";
   els.liveStatus.textContent = "Syncing live data...";
@@ -759,6 +1044,25 @@ function bindEvents() {
   $$(".tab-button").forEach((button) => {
     button.addEventListener("click", () => switchPanel(button.dataset.step));
   });
+
+  if (els.penaltyCanvas) {
+    els.penaltyCanvas.addEventListener("pointermove", penaltySetAim);
+    els.penaltyCanvas.addEventListener("pointerdown", penaltyKick);
+    els.penaltyCanvas.addEventListener("touchmove", (event) => {
+      event.preventDefault();
+      penaltySetAim(event);
+    }, { passive: false });
+  }
+
+  els.penaltyResetButton?.addEventListener("click", penaltyResetScore);
+  const penaltyGoalImage = els.penaltyGoalFlash?.querySelector("img");
+  if (penaltyGoalImage) {
+    const markMissingPenaltyGif = () => els.penaltyGoalFlash.classList.add("asset-missing");
+    penaltyGoalImage.addEventListener("error", markMissingPenaltyGif);
+    if (penaltyGoalImage.complete && penaltyGoalImage.naturalWidth === 0) {
+      markMissingPenaltyGif();
+    }
+  }
 
   els.playerCountSelect.addEventListener("change", async (event) => {
     setPlayerCount(event.target.value);
@@ -897,6 +1201,7 @@ async function init() {
   liveData = state.resultsCache;
   renderAll();
   bindEvents();
+  penaltyLoop();
 }
 
 init();

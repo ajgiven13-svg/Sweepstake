@@ -28,6 +28,7 @@
           <button type="button" class="tab-button" data-step="exclusions">Exclusions</button>
           <button type="button" class="tab-button" data-step="draw">Draw</button>
           <button type="button" class="tab-button" data-step="results">Results</button>
+          <button type="button" class="tab-button" data-step="penalties">Penalties</button>
         </nav>
 
         <section class="summary-grid" id="summaryGrid"></section>
@@ -142,6 +143,39 @@
             </div>
             <div class="table-wrap" id="groupTables"></div>
           </section>
+        </section>
+
+        <section class="panel" id="penaltiesPanel" data-panel="penalties">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Bonus Game</p>
+              <h2>Penalty Kick</h2>
+            </div>
+            <button type="button" class="secondary-button" id="penaltyResetButton">Reset score</button>
+          </div>
+          <div class="penalty-wrap">
+            <div class="penalty-scoreboard">
+              <article>
+                <span>Score</span>
+                <strong id="penaltyScore">0</strong>
+              </article>
+              <article>
+                <span>Shots</span>
+                <strong id="penaltyShots">0</strong>
+              </article>
+              <article>
+                <span>Status</span>
+                <strong id="penaltyMessage">Aim</strong>
+              </article>
+            </div>
+            <div class="penalty-stage">
+              <canvas id="penaltyCanvas" width="720" height="420" aria-label="Penalty kick mini game"></canvas>
+              <div class="penalty-goal-flash" id="penaltyGoalFlash" aria-hidden="true">
+                <img src="/assets/penalty-goal.gif" alt="">
+                <span>GOO!</span>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
     </div>
