@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/sweepstake/:drawId", "destination": "/index.html" }
+  ]
+}

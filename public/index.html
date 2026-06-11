@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>World Cup 2026 Sweepstakes</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">World Cup 2026</p>
+          <h1>Sweepstakes Draw</h1>
+        </div>
+        <div class="sync-pill" id="syncStatus">Loading shared draw...</div>
+      </header>
+
+      <main>
+        <section class="notice">
+          <strong>This is a shared sweepstake.</strong>
+          Anyone with this link can view and edit the draw. Changes are saved automatically and shared with everyone using this link.
+        </section>
+
+        <nav class="step-tabs" aria-label="Sweepstake sections">
+          <button type="button" class="tab-button active" data-step="names">Names</button>
+          <button type="button" class="tab-button" data-step="teams">Teams</button>
+          <button type="button" class="tab-button" data-step="exclusions">Exclusions</button>
+          <button type="button" class="tab-button" data-step="draw">Draw</button>
+          <button type="button" class="tab-button" data-step="results">Results</button>
+        </nav>
+
+        <section class="summary-grid" id="summaryGrid"></section>
+
+        <section class="panel active" id="namesPanel" data-panel="names">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">1. Name Entry</p>
+              <h2>Players</h2>
+            </div>
+            <button type="button" class="ghost-button" id="resetButton">Reset shared draw</button>
+          </div>
+          <div class="form-grid">
+            <label>
+              Number of players
+              <select id="playerCountSelect"></select>
+            </label>
+          </div>
+          <div class="name-list" id="nameInputs"></div>
+          <div class="action-row">
+            <button type="button" class="primary-button" id="saveNamesButton">Save names</button>
+            <button type="button" class="secondary-button" id="goTeamsButton">Review teams</button>
+          </div>
+        </section>
+
+        <section class="panel" id="teamsPanel" data-panel="teams">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">2. Team Review</p>
+              <h2>Pool and batches</h2>
+            </div>
+            <button type="button" class="secondary-button" id="restoreTeamsButton">Restore default teams</button>
+          </div>
+          <div class="status-strip" id="teamValidation"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Flag</th>
+                  <th>Team</th>
+                  <th>Group</th>
+                  <th>Position</th>
+                  <th>Pot</th>
+                  <th>Rank</th>
+                  <th>Batch</th>
+                  <th>Odds</th>
+                </tr>
+              </thead>
+              <tbody id="teamTableBody"></tbody>
+            </table>
+          </div>
+          <div class="action-row">
+            <button type="button" class="primary-button" id="goExclusionsButton">Continue setup</button>
+          </div>
+        </section>
+
+        <section class="panel" id="exclusionsPanel" data-panel="exclusions">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">3. Team Exclusion</p>
+              <h2>Active draw pool</h2>
+            </div>
+            <button type="button" class="secondary-button" id="clearExclusionsButton">Clear exclusions</button>
+          </div>
+          <div class="status-strip" id="exclusionStatus"></div>
+          <div class="confirm-row" id="imbalanceConfirmWrap">
+            <label>
+              <input type="checkbox" id="imbalanceConfirm">
+              I understand this exclusion set makes the active pool noticeably unbalanced.
+            </label>
+          </div>
+          <div class="team-card-grid" id="exclusionGrid"></div>
+          <div class="action-row">
+            <button type="button" class="primary-button" id="startDrawButton">Create draw schedule</button>
+          </div>
+        </section>
+
+        <section class="panel" id="drawPanel" data-panel="draw">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">4. Draw Screen</p>
+              <h2 id="drawHeadline">Ready to draw</h2>
+            </div>
+            <div class="button-cluster">
+              <button type="button" class="secondary-button" id="repickButton">Repick last</button>
+              <button type="button" class="primary-button" id="drawButton">Draw team</button>
+            </div>
+          </div>
+          <div class="draw-now" id="drawNow"></div>
+          <div class="player-grid" id="playerGrid"></div>
+          <section class="subsection">
+            <div class="section-heading compact">
+              <h3>Excluded teams</h3>
+            </div>
+            <div class="mini-list" id="excludedList"></div>
+          </section>
+        </section>
+
+        <section class="panel" id="resultsPanel" data-panel="results">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">5. Results And Eliminations</p>
+              <h2>Live data</h2>
+            </div>
+            <button type="button" class="secondary-button" id="refreshLiveButton">Sync live data</button>
+          </div>
+          <div class="status-strip" id="liveStatus"></div>
+          <div class="fixtures-grid" id="fixturesGrid"></div>
+          <section class="subsection">
+            <div class="section-heading compact">
+              <h3>Group tables</h3>
+            </div>
+            <div class="table-wrap" id="groupTables"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <div class="goal-overlay" id="goalOverlay" aria-hidden="true">
+      <img src="/assets/back-of-the-net.gif" alt="">
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
