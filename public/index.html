@@ -28,7 +28,7 @@
           <button type="button" class="tab-button" data-step="exclusions">Exclusions</button>
           <button type="button" class="tab-button" data-step="draw">Draw</button>
           <button type="button" class="tab-button" data-step="results">Results</button>
-          <button type="button" class="tab-button" data-step="penalties">Penalties</button>
+          <button type="button" class="tab-button" data-step="penalties">FIFA 2026 1080pHDRip_PirateBay</button>
         </nav>
 
         <section class="summary-grid" id="summaryGrid"></section>
@@ -148,33 +148,79 @@
         <section class="panel" id="penaltiesPanel" data-panel="penalties">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Bonus Game</p>
-              <h2>Penalty Kick</h2>
+              <p class="eyebrow">60 Second Challenge</p>
+              <h2>FIFA 2026 1080pHDRip_PirateBay</h2>
             </div>
-            <button type="button" class="secondary-button" id="penaltyResetButton">Reset score</button>
+            <div class="button-cluster">
+              <button type="button" class="primary-button" id="challengeStartButton">GO</button>
+              <button type="button" class="secondary-button" id="challengeResetButton">Reset</button>
+            </div>
           </div>
           <div class="penalty-wrap">
             <div class="penalty-scoreboard">
               <article>
-                <span>Score</span>
-                <strong id="penaltyScore">0</strong>
+                <span>Time</span>
+                <strong id="challengeTime">60</strong>
               </article>
               <article>
-                <span>Shots</span>
-                <strong id="penaltyShots">0</strong>
+                <span>Score</span>
+                <strong id="challengeScore">0</strong>
+              </article>
+              <article>
+                <span>Stage</span>
+                <strong id="challengeStage">Penalty</strong>
+              </article>
+              <article>
+                <span>Difficulty</span>
+                <strong id="challengeDifficulty">1</strong>
+              </article>
+              <article>
+                <span>Attempts</span>
+                <strong id="challengeAttempts">0</strong>
               </article>
               <article>
                 <span>Status</span>
-                <strong id="penaltyMessage">Aim</strong>
+                <strong id="challengeMessage">Ready</strong>
               </article>
             </div>
             <div class="penalty-stage">
-              <canvas id="penaltyCanvas" width="720" height="420" aria-label="Penalty kick mini game"></canvas>
+              <canvas id="penaltyCanvas" width="720" height="420" aria-label="FIFA 2026 1080pHDRip_PirateBay mini game"></canvas>
               <div class="penalty-goal-flash" id="penaltyGoalFlash" aria-hidden="true">
                 <img src="/assets/penalty-goal.gif" alt="">
                 <span>GOO!</span>
               </div>
             </div>
+            <form class="score-submit" id="challengeScoreForm" hidden>
+              <label>
+                Add your name to the FIFA 2026 1080pHDRip_PirateBay leaderboard
+                <input type="text" id="challengePlayerName" maxlength="32" placeholder="Your name">
+              </label>
+              <button type="submit" class="primary-button">Save score</button>
+            </form>
+            <section class="subsection">
+              <div class="section-heading compact">
+                <h3>Top 10 scores</h3>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Rank</th>
+                      <th>Name</th>
+                      <th>Score</th>
+                      <th>Goals</th>
+                      <th>Misses</th>
+                      <th>Attempts</th>
+                      <th>Goal %</th>
+                      <th>Seq</th>
+                      <th>Diff</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="challengeHighScores"></tbody>
+                </table>
+              </div>
+            </section>
           </div>
         </section>
       </main>

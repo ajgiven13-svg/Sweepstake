@@ -568,7 +568,7 @@ tr:last-child td {
 
 .penalty-scoreboard {
   display: grid;
-  grid-template-columns: repeat(3, minmax(130px, 1fr));
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
   gap: 10px;
 }
 
@@ -591,7 +591,45 @@ tr:last-child td {
 .penalty-scoreboard strong {
   display: block;
   margin-top: 6px;
-  font-size: clamp(1.4rem, 3vw, 2.25rem);
+  font-size: clamp(1.1rem, 2.4vw, 1.85rem);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.score-submit {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #fffef8;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
+}
+
+.score-submit[hidden] {
+  display: none;
+}
+
+.score-submit label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.score-submit input {
+  width: 100%;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fffaf0;
+  color: var(--black);
+  font: inherit;
+  font-weight: 800;
 }
 
 .penalty-stage {
@@ -695,6 +733,7 @@ tr:last-child td {
   #groupTables {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
 }
 
 @media (max-width: 680px) {
@@ -730,5 +769,9 @@ tr:last-child td {
 
   .button-cluster button {
     flex: 1;
+  }
+
+  .score-submit {
+    grid-template-columns: 1fr;
   }
 }
