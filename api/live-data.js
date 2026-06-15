@@ -1,5 +1,8 @@
 import { sendJson } from "../lib/http.js";
 
+const TOURNAMENT_START_DATE = "20260611";
+const ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
+
 const STATIC_FIXTURES = [
   fixture("2026-06-11T17:30:00Z", "Group A", "Mexico", "South Africa", "Mexico City Stadium"),
   fixture("2026-06-11T20:00:00Z", "Group A", "South Korea", "Czechia", "Estadio Guadalajara"),
@@ -54,6 +57,8 @@ function fixture(utcDate, group, home, away, venue) {
 
 function teamIdFromName(value) {
   const normalized = String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
@@ -69,6 +74,14 @@ function teamIdFromName(value) {
     "cote-d-ivoire": "ivory-coast",
     "ivory-coast": "ivory-coast",
     "cape-verde": "cape-verde",
+    "cabo-verde": "cape-verde",
+    "curacao": "curacao",
+    "cura-ao": "curacao",
+    "turkiye": "turkey",
+    "t-rkiye": "turkey",
+    "czech-republic": "czechia",
+    "korea-republic": "south-korea",
+    "congo-dr": "dr-congo",
     "south-korea": "south-korea",
     "new-zealand": "new-zealand",
     "south-africa": "south-africa",
@@ -101,6 +114,71 @@ function normalizeFixture(match) {
       fullTime: {
         home: Number.isFinite(fullTime.home) ? fullTime.home : null,
         away: Number.isFinite(fullTime.away) ? fullTime.away : null
+      }
+    }
+  };
+}
+
+function formatEspnDate(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+function tomorrowDateRangeEnd() {
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  return formatEspnDate(tomorrow);
+}
+
+function parseEspnGroup(note) {
+  const match = String(note || "").match(/Group\s+[A-Z]/i);
+  return match ? match[0].replace(/^group/i, "Group") : "";
+}
+
+function normalizeEspnTeam(competitor = {}) {
+  const team = competitor.team || {};
+  const name = team.displayName || team.shortDisplayName || team.name || team.location || "TBC";
+  return {
+    id: teamIdFromName(name),
+    name,
+    shortName: name
+  };
+}
+
+function espnScore(competitor, statusType = {}) {
+  if (statusType.state === "pre") return null;
+  const score = Number(competitor?.score);
+  return Number.isFinite(score) ? score : null;
+}
+
+function normalizeEspnFixture(event) {
+  const competition = event.competitions?.[0] || {};
+  const competitors = competition.competitors || [];
+  const home = competitors.find((competitor) => competitor.homeAway === "home") || competitors[0] || {};
+  const away = competitors.find((competitor) => competitor.homeAway === "away") || competitors[1] || {};
+  const statusType = competition.status?.type || {};
+  const venue = [
+    competition.venue?.fullName,
+    competition.venue?.address?.city
+  ].filter(Boolean).join(", ");
+
+  return {
+    id: event.id || competition.id || `espn-${event.date}-${event.name}`,
+    utcDate: competition.date || event.date,
+    group: parseEspnGroup(competition.altGameNote),
+    venue,
+    status: statusType.description || statusType.name || "Scheduled",
+    statusState: statusType.state || "",
+    completed: Boolean(statusType.completed),
+    source: "espn",
+    homeTeam: normalizeEspnTeam(home),
+    awayTeam: normalizeEspnTeam(away),
+    score: {
+      fullTime: {
+        home: espnScore(home, statusType),
+        away: espnScore(away, statusType)
       }
     }
   };
@@ -156,6 +234,7 @@ function computeStandings(fixtures) {
     const homeScore = match.score?.fullTime?.home;
     const awayScore = match.score?.fullTime?.away;
     if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return;
+    if (!isCompletedFixture(match)) return;
 
     const homeId = match.homeTeam.id || teamIdFromName(match.homeTeam.shortName || match.homeTeam.name);
     const awayId = match.awayTeam.id || teamIdFromName(match.awayTeam.shortName || match.awayTeam.name);
@@ -173,6 +252,22 @@ function computeStandings(fixtures) {
       || a.teamName.localeCompare(b.teamName)
     ))
   })).sort((a, b) => a.group.localeCompare(b.group));
+}
+
+function computeTournamentStandings(fixtures) {
+  return computeStandings([
+    ...STATIC_FIXTURES.map(normalizeFixture),
+    ...fixtures
+  ]);
+}
+
+function isCompletedFixture(match) {
+  if (match.completed) return true;
+  const status = String(match.status || "").toLowerCase();
+  return status.includes("full time")
+    || status.includes("final")
+    || status === "finished"
+    || status === "full_time";
 }
 
 function normalizeStandings(data) {
@@ -207,54 +302,72 @@ async function fetchJson(url, headers = {}) {
   return response.json();
 }
 
+async function fetchEspnFixtures() {
+  const endDate = tomorrowDateRangeEnd();
+  const data = await fetchJson(`${ESPN_SCOREBOARD_URL}?dates=${TOURNAMENT_START_DATE}-${endDate}`);
+  return (data.events || []).map(normalizeEspnFixture);
+}
+
+async function fetchFootballData(payload) {
+  if (!process.env.FOOTBALL_DATA_TOKEN) return;
+
+  const headers = {
+    "X-Auth-Token": process.env.FOOTBALL_DATA_TOKEN
+  };
+  const data = await fetchJson("https://api.football-data.org/v4/competitions/WC/matches", headers);
+  payload.fixtures = (data.matches || []).map(normalizeFixture);
+  payload.fixturesSource = "football-data";
+  payload.providerAvailable = true;
+  payload.messages.push("Live scores synced from Football-Data.");
+
+  try {
+    const standingsData = await fetchJson("https://api.football-data.org/v4/competitions/WC/standings", headers);
+    payload.standings = normalizeStandings(standingsData);
+  } catch (error) {
+    payload.messages.push(`Official standings unavailable, using fixture scores where possible: ${error.message}`);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     sendJson(res, 405, { ok: false, error: "Method not allowed." });
     return;
   }
 
-  const hasFootballData = Boolean(process.env.FOOTBALL_DATA_TOKEN);
   const payload = {
     ok: true,
     providerAvailable: true,
-    fixturesSource: hasFootballData ? "football-data" : "static",
+    fixturesSource: "espn",
     fixtures: [],
     standings: [],
     messages: [],
     syncedAt: new Date().toISOString()
   };
 
-  if (!hasFootballData) {
-    payload.providerAvailable = false;
-    payload.messages.push("Using the static published fixture schedule. Live scores and official tables need FOOTBALL_DATA_TOKEN on the server.");
-  }
-
   try {
-    if (hasFootballData) {
-      const headers = {
-        "X-Auth-Token": process.env.FOOTBALL_DATA_TOKEN
-      };
-      const data = await fetchJson("https://api.football-data.org/v4/competitions/WC/matches", headers);
-      payload.fixtures = (data.matches || []).map(normalizeFixture);
-      try {
-        const standingsData = await fetchJson("https://api.football-data.org/v4/competitions/WC/standings", headers);
-        payload.standings = normalizeStandings(standingsData);
-      } catch (error) {
-        payload.messages.push(`Official standings unavailable, using fixture scores where possible: ${error.message}`);
-      }
-    }
+    payload.fixtures = await fetchEspnFixtures();
+    payload.messages.push("Live scores synced from ESPN.");
   } catch (error) {
-    payload.providerAvailable = false;
-    payload.messages.push(`Football-data sync failed: ${error.message}`);
+    payload.messages.push(`ESPN live score sync failed: ${error.message}`);
   }
 
   if (!payload.fixtures.length) {
+    try {
+      await fetchFootballData(payload);
+    } catch (error) {
+      payload.messages.push(`Football-Data backup sync failed: ${error.message}`);
+    }
+  }
+
+  if (!payload.fixtures.length) {
+    payload.providerAvailable = false;
     payload.fixturesSource = "static";
     payload.fixtures = STATIC_FIXTURES.map(normalizeFixture);
+    payload.messages.push("Live provider unavailable. Showing the static published fixture schedule.");
   }
 
   if (!payload.standings.length) {
-    payload.standings = computeStandings(payload.fixtures);
+    payload.standings = computeTournamentStandings(payload.fixtures);
   }
 
   sendJson(res, 200, payload);

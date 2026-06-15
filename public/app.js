@@ -396,6 +396,8 @@ function createDefaultState(drawId = getDrawId()) {
 
 function normalizeTeamName(value) {
   return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
@@ -415,6 +417,14 @@ function teamIdFromName(value) {
     "cote-d-ivoire": "ivory-coast",
     "ivory-coast": "ivory-coast",
     "cape-verde": "cape-verde",
+    "cabo-verde": "cape-verde",
+    "curacao": "curacao",
+    "cura-ao": "curacao",
+    "turkiye": "turkey",
+    "t-rkiye": "turkey",
+    "czech-republic": "czechia",
+    "korea-republic": "south-korea",
+    "congo-dr": "dr-congo",
     "south-korea": "south-korea",
     "new-zealand": "new-zealand",
     "south-africa": "south-africa",
@@ -1006,7 +1016,7 @@ function renderFixtureTeam(team, side, owners) {
     <div class="match-team ${side}">
       <span>${side === "home" ? "Home" : "Away"}</span>
       <strong>${localTeam?.flag || ""} ${escapeHtml(name)}</strong>
-      ${ownerChip(name, owners)}
+      ${ownerChip(fixtureTeamId(team), owners)}
     </div>
   `;
 }
