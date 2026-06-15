@@ -37,17 +37,15 @@
         </section>
 
         <nav class="step-tabs" aria-label="Sweepstake sections">
-          <button type="button" class="tab-button active" data-step="names">Names</button>
+          <button type="button" class="tab-button" data-step="names">Names</button>
           <button type="button" class="tab-button" data-step="teams">Teams</button>
           <button type="button" class="tab-button" data-step="exclusions">Exclusions</button>
           <button type="button" class="tab-button" data-step="draw">Draw</button>
-          <button type="button" class="tab-button" data-step="results">Results</button>
+          <button type="button" class="tab-button active" data-step="results">Results</button>
           <button type="button" class="tab-button" data-step="penalties">FIFA 2026 1080pHDRip_PirateBay</button>
         </nav>
 
-        <section class="summary-grid" id="summaryGrid"></section>
-
-        <section class="panel active" id="namesPanel" data-panel="names">
+        <section class="panel" id="namesPanel" data-panel="names">
           <div class="section-heading">
             <div>
               <p class="eyebrow">1. Name Entry</p>
@@ -55,6 +53,7 @@
             </div>
             <button type="button" class="ghost-button" id="resetButton">Reset shared draw</button>
           </div>
+          <section class="summary-grid" id="summaryGrid"></section>
           <div class="form-grid">
             <label>
               Number of players
@@ -151,7 +150,7 @@ Argentina — Best — 8/1"></textarea>
           </section>
         </section>
 
-        <section class="panel" id="resultsPanel" data-panel="results">
+        <section class="panel active" id="resultsPanel" data-panel="results">
           <div class="section-heading">
             <div>
               <p class="eyebrow">5. Results And Eliminations</p>

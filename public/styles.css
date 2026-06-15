@@ -495,6 +495,35 @@ tr:last-child td {
   box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
 }
 
+.player-card.player-tone-0,
+.owner-chip.player-tone-0 { background: #ffe1e8; }
+.player-card.player-tone-1,
+.owner-chip.player-tone-1 { background: #e0f4ff; }
+.player-card.player-tone-2,
+.owner-chip.player-tone-2 { background: #e4f8dc; }
+.player-card.player-tone-3,
+.owner-chip.player-tone-3 { background: #fff0c7; }
+.player-card.player-tone-4,
+.owner-chip.player-tone-4 { background: #eadfff; }
+.player-card.player-tone-5,
+.owner-chip.player-tone-5 { background: #dff8f2; }
+.player-card.player-tone-6,
+.owner-chip.player-tone-6 { background: #ffe7d4; }
+.player-card.player-tone-7,
+.owner-chip.player-tone-7 { background: #e8ecff; }
+.player-card.player-tone-8,
+.owner-chip.player-tone-8 { background: #f2f7d7; }
+.player-card.player-tone-9,
+.owner-chip.player-tone-9 { background: #ffdff6; }
+.player-card.player-tone-10,
+.owner-chip.player-tone-10 { background: #dff0e4; }
+.player-card.player-tone-11,
+.owner-chip.player-tone-11 { background: #f3e6d8; }
+
+.player-card[class*="player-tone-"] {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.18));
+}
+
 .fixture-card p {
   display: grid;
   gap: 4px;
@@ -653,6 +682,21 @@ tr:last-child td {
   font-weight: 1000;
   text-align: center;
   box-shadow: 0 4px 0 rgba(28, 23, 12, 0.18);
+}
+
+.score-pill.is-upcoming {
+  background: #ff6b63;
+  color: #2b0b08;
+}
+
+.score-pill.is-ongoing {
+  background: #ffd84d;
+  color: #2d2200;
+}
+
+.score-pill.is-full-time {
+  background: #59d47a;
+  color: #062411;
 }
 
 .owner-chip {

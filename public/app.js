@@ -586,22 +586,36 @@ function playerById(id) {
   return state.players.find((player) => player.id === id);
 }
 
+function playerToneClass(playerIdOrName) {
+  const playerIndex = state.players.findIndex((player) => (
+    player.id === playerIdOrName
+    || player.name === playerIdOrName
+  ));
+  return `player-tone-${Math.max(0, playerIndex) % 12}`;
+}
+
 function ownerByTeamId() {
   const owners = new Map();
   state.picks.forEach((pick) => {
     const player = playerById(pick.playerId);
-    if (player?.name) owners.set(pick.teamId, player.name);
+    if (player?.name) {
+      owners.set(pick.teamId, {
+        id: player.id,
+        name: player.name,
+        tone: playerToneClass(player.id)
+      });
+    }
   });
   return owners;
 }
 
 function ownerForTeam(teamValue, owners = ownerByTeamId()) {
-  return owners.get(teamIdFromName(teamValue)) || "";
+  return owners.get(teamIdFromName(teamValue)) || null;
 }
 
 function ownerChip(teamValue, owners = ownerByTeamId()) {
   const owner = ownerForTeam(teamValue, owners);
-  return owner ? `<span class="owner-chip">${escapeHtml(owner)}</span>` : "";
+  return owner ? `<span class="owner-chip ${owner.tone}">${escapeHtml(owner.name)}</span>` : "";
 }
 
 function countsByBatch(teamIds = state.activeTeamIds) {
@@ -843,7 +857,7 @@ function renderDraw() {
     const picks = picksForPlayer(player.id);
     const balance = BATCHES.map((batch) => `${batch}: ${picks.filter((pick) => pick.batch === batch).length}`).join(" · ");
     return `
-      <article class="player-card">
+      <article class="player-card ${playerToneClass(player.id)}">
         <div class="player-card-head">
           <h3>${escapeHtml(player.name || "Unnamed player")}</h3>
           <span>${picks.length} teams</span>
@@ -982,11 +996,11 @@ function renderGroupTables(owners = ownerByTeamId()) {
           ${(standing.table || []).map((row) => {
             const teamId = row.teamId || teamIdFromName(row.teamName);
             const localTeam = teamById(teamId);
-            const owner = owners.get(teamId) || "";
+            const owner = owners.get(teamId);
             return `
             <tr>
               <td class="standing-team">${localTeam?.flag || ""} ${escapeHtml(row.teamName || localTeam?.name || "TBC")}${row.status ? `<small>${escapeHtml(row.status)}</small>` : ""}</td>
-              <td>${owner ? `<span class="owner-chip">${escapeHtml(owner)}</span>` : "<span class=\"owner-empty\">-</span>"}</td>
+              <td>${owner ? `<span class="owner-chip ${owner.tone}">${escapeHtml(owner.name)}</span>` : "<span class=\"owner-empty\">-</span>"}</td>
               <td>${row.played ?? 0}</td>
               <td><strong>${row.points ?? 0}</strong></td>
               <td>${row.goalsFor ?? 0}</td>
@@ -1030,6 +1044,7 @@ function renderFixture(match, owners = ownerByTeamId()) {
     : "TBC";
   const score = hasScore ? `${fullTime.home}-${fullTime.away}` : kickOff;
   const status = match.status ? String(match.status).replace(/_/g, " ") : "Scheduled";
+  const statusClass = fixtureStatusClass(match, hasScore);
   return `
     <div class="match-row">
       <div class="match-meta">
@@ -1038,11 +1053,23 @@ function renderFixture(match, owners = ownerByTeamId()) {
       </div>
       <div class="match-teams">
         ${renderFixtureTeam(match.homeTeam, "home", owners)}
-        <div class="score-pill">${escapeHtml(score)}</div>
+        <div class="score-pill ${statusClass}">${escapeHtml(score)}</div>
         ${renderFixtureTeam(match.awayTeam, "away", owners)}
       </div>
     </div>
   `;
+}
+
+function fixtureStatusClass(match, hasScore) {
+  const stateValue = String(match.statusState || "").toLowerCase();
+  const status = String(match.status || "").toLowerCase();
+  if (match.completed || stateValue === "post" || status.includes("full time") || status.includes("final")) {
+    return "is-full-time";
+  }
+  if (stateValue === "in" || status.includes("half") || status.includes("progress") || status.includes("live")) {
+    return "is-ongoing";
+  }
+  return hasScore ? "is-ongoing" : "is-upcoming";
 }
 
 function renderAll() {
