@@ -723,6 +723,113 @@ tr:last-child td {
   color: var(--muted);
 }
 
+.odds-leaderboard-wrap {
+  margin: 16px 0;
+}
+
+.odds-leaderboard {
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 254, 248, 0.92);
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
+}
+
+.odds-leaderboard .section-heading {
+  margin-bottom: 12px;
+}
+
+.odds-leaderboard h3 {
+  margin-bottom: 4px;
+}
+
+.odds-leaderboard p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.odds-rank-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.odds-rank-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid rgba(28, 23, 12, 0.18);
+  border-radius: 8px;
+  padding: 10px;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.2));
+}
+
+.odds-rank-card.podium {
+  border-color: rgba(28, 23, 12, 0.32);
+}
+
+.odds-rank-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.odds-rank-main strong {
+  font-size: 0.94rem;
+  overflow-wrap: anywhere;
+}
+
+.rank-badge,
+.medal-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  box-sizing: border-box;
+  border: 2px solid rgba(28, 23, 12, 0.28);
+  border-radius: 50%;
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 1000;
+  line-height: 1;
+  text-align: center;
+  box-shadow: 0 4px 0 rgba(28, 23, 12, 0.16);
+}
+
+.rank-badge {
+  background: #fffaf0;
+}
+
+.medal-badge.gold {
+  background: linear-gradient(180deg, #ffe785, #dca72b);
+}
+
+.medal-badge.silver {
+  background: linear-gradient(180deg, #f4f6fa, #aeb7c4);
+}
+
+.medal-badge.bronze {
+  background: linear-gradient(180deg, #f1bd83, #b66b31);
+}
+
+.prediction-percent {
+  display: block;
+  border: 2px solid rgba(28, 23, 12, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.54);
+  padding: 8px;
+  font-size: clamp(1rem, 2.1vw, 1.28rem);
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
 #groupTables {
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
@@ -969,6 +1076,7 @@ tr:last-child td {
   .team-card-grid,
   .player-grid,
   .fixtures-grid,
+  .odds-rank-list,
   .penalty-scoreboard,
   #groupTables {
     grid-template-columns: 1fr;

@@ -329,6 +329,7 @@ const els = {
   excludedList: $("#excludedList"),
   refreshLiveButton: $("#refreshLiveButton"),
   liveStatus: $("#liveStatus"),
+  oddsLeaderboard: $("#oddsLeaderboard"),
   fixturesGrid: $("#fixturesGrid"),
   groupTables: $("#groupTables"),
   goalOverlay: $("#goalOverlay"),
@@ -618,6 +619,178 @@ function ownerChip(teamValue, owners = ownerByTeamId()) {
   return owner ? `<span class="owner-chip ${owner.tone}">${escapeHtml(owner.name)}</span>` : "";
 }
 
+function parseFractionalOdds(value) {
+  const match = String(value || "").match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+  if (!match) return { numerator: 1000, denominator: 1 };
+  return {
+    numerator: Number(match[1]),
+    denominator: Number(match[2])
+  };
+}
+
+function impliedProbabilityFromOdds(value) {
+  const { numerator, denominator } = parseFractionalOdds(value);
+  return denominator / (numerator + denominator);
+}
+
+function formatPercent(value) {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatFairOdds(probability) {
+  if (!probability || probability <= 0) return "1000/1";
+  const decimal = (1 / probability) - 1;
+  if (decimal < 1) return "Odds-on";
+  const rounded = Math.max(1, Math.round(decimal));
+  return `${rounded}/1`;
+}
+
+function ordinalRank(rank) {
+  const suffix = rank === 1 ? "st" : rank === 2 ? "nd" : rank === 3 ? "rd" : "th";
+  return `${rank}${suffix}`;
+}
+
+function standingsByTeamId() {
+  const standings = liveData?.standings?.length ? liveData.standings : fallbackStandings();
+  const rows = new Map();
+  standings.forEach((standing) => {
+    (standing.table || []).forEach((row) => {
+      rows.set(row.teamId || teamIdFromName(row.teamName), row);
+    });
+  });
+  return rows;
+}
+
+function actualMatchPoints(goalsFor, goalsAgainst) {
+  if (goalsFor > goalsAgainst) return 3;
+  if (goalsFor === goalsAgainst) return 1;
+  return 0;
+}
+
+function expectedMatchPoints(team, opponent) {
+  const teamStrength = impliedProbabilityFromOdds(team?.odds);
+  const opponentStrength = impliedProbabilityFromOdds(opponent?.odds);
+  const totalStrength = teamStrength + opponentStrength || 1;
+  const winShare = teamStrength / totalStrength;
+  const strengthGap = Math.abs(winShare - 0.5);
+  const drawProbability = Math.max(0.14, Math.min(0.32, 0.3 - (strengthGap * 0.28)));
+  return (winShare * (1 - drawProbability) * 3) + drawProbability;
+}
+
+function completedFixtureDeltas() {
+  const deltas = new Map();
+  (liveData?.fixtures || []).forEach((match) => {
+    const fullTime = match.score?.fullTime || {};
+    if (!fixtureStatusClass(match, true).includes("full-time")) return;
+    if (!Number.isFinite(fullTime.home) || !Number.isFinite(fullTime.away)) return;
+
+    const homeId = fixtureTeamId(match.homeTeam);
+    const awayId = fixtureTeamId(match.awayTeam);
+    const homeTeam = teamById(homeId);
+    const awayTeam = teamById(awayId);
+    if (!homeTeam || !awayTeam) return;
+
+    const homeActual = actualMatchPoints(fullTime.home, fullTime.away);
+    const awayActual = actualMatchPoints(fullTime.away, fullTime.home);
+    const homeDelta = homeActual - expectedMatchPoints(homeTeam, awayTeam);
+    const awayDelta = awayActual - expectedMatchPoints(awayTeam, homeTeam);
+
+    const updates = [
+      [homeId, homeDelta],
+      [awayId, awayDelta]
+    ];
+    updates.forEach(([teamId, delta]) => {
+      const current = deltas.get(teamId) || { delta: 0, matches: 0 };
+      current.delta += delta;
+      current.matches += 1;
+      deltas.set(teamId, current);
+    });
+  });
+  return deltas;
+}
+
+function resultExpectationLabel(delta) {
+  if (delta >= 0.85) return "boosted by result";
+  if (delta >= 0.35) return "up after result";
+  if (delta <= -0.85) return "hit by result";
+  if (delta <= -0.35) return "down after result";
+  return "";
+}
+
+function teamPerformanceMultiplier(team, row, expectation) {
+  if (!row) return 1;
+  const played = Number(row.played || 0);
+  if (!played) return 1;
+  const points = Number(row.points || 0);
+  const goalDifference = Number(row.goalDifference || 0);
+  const goalsFor = Number(row.goalsFor || 0);
+  const goalsAgainst = Number(row.goalsAgainst || 0);
+  const lost = Number(row.lost || 0);
+  const expectationDelta = Number(expectation?.delta || 0);
+  const expectationComponent = expectationDelta * 0.34;
+  const standingsComponent = (points * 0.035)
+    + (goalDifference * 0.025)
+    + (goalsFor * 0.01)
+    - (goalsAgainst * 0.008)
+    - (lost * 0.04);
+  const favouriteBrake = impliedProbabilityFromOdds(team?.odds) > 0.12 && expectationDelta < 0
+    ? expectationDelta * 0.12
+    : 0;
+  const multiplier = 1 + expectationComponent + standingsComponent + favouriteBrake;
+  return Math.min(2.35, Math.max(0.25, multiplier));
+}
+
+function adjustedTeamProbabilities() {
+  const standings = standingsByTeamId();
+  const expectationDeltas = completedFixtureDeltas();
+  const weighted = state.teams.map((team) => {
+    const base = impliedProbabilityFromOdds(team.odds);
+    const row = standings.get(team.id);
+    const expectation = expectationDeltas.get(team.id) || { delta: 0, matches: 0 };
+    return {
+      team,
+      row,
+      expectation,
+      adjustedWeight: base * teamPerformanceMultiplier(team, row, expectation)
+    };
+  });
+  const total = weighted.reduce((sum, item) => sum + item.adjustedWeight, 0) || 1;
+  return new Map(weighted.map((item) => [item.team.id, {
+    ...item,
+    probability: item.adjustedWeight / total
+  }]));
+}
+
+function sweepstakeLeaderboard() {
+  if (!state.picks.length) return [];
+  const teamProbabilities = adjustedTeamProbabilities();
+  return state.players.map((player) => {
+    const picks = picksForPlayer(player.id).map((pick) => {
+      const team = teamById(pick.teamId);
+      const model = teamProbabilities.get(pick.teamId);
+      const row = model?.row || {};
+      return {
+        team,
+        probability: model?.probability || 0,
+        points: Number(row.points || 0),
+        goalDifference: Number(row.goalDifference || 0),
+        expectationDelta: Number(model?.expectation?.delta || 0),
+        resultLabel: resultExpectationLabel(Number(model?.expectation?.delta || 0))
+      };
+    });
+    const probability = picks.reduce((sum, pick) => sum + pick.probability, 0);
+    const points = picks.reduce((sum, pick) => sum + pick.points, 0);
+    const best = [...picks].sort((a, b) => b.probability - a.probability)[0];
+    return {
+      player,
+      picks,
+      probability,
+      points,
+      best
+    };
+  }).sort((a, b) => b.probability - a.probability || b.points - a.points || a.player.name.localeCompare(b.player.name));
+}
+
 function countsByBatch(teamIds = state.activeTeamIds) {
   return BATCHES.reduce((counts, batch) => {
     counts[batch] = teamIds.map(teamById).filter((team) => team?.batch === batch).length;
@@ -891,6 +1064,7 @@ function renderResults() {
   }
 
   const owners = ownerByTeamId();
+  renderOddsLeaderboard();
   const fixtures = liveData?.fixtures || [];
   const today = new Date();
   const buckets = [
@@ -912,6 +1086,50 @@ function renderResults() {
   }).join("");
 
   els.groupTables.innerHTML = BATCHES.length ? renderGroupTables(owners) : "";
+}
+
+function renderOddsLeaderboard() {
+  if (!els.oddsLeaderboard) return;
+  const leaderboard = sweepstakeLeaderboard();
+  if (!leaderboard.length) {
+    els.oddsLeaderboard.innerHTML = `
+      <article class="odds-leaderboard empty-note">
+        <h3>Sweepstake leaderboard</h3>
+        <p>Complete the draw to see modelled sweepstake odds.</p>
+      </article>
+    `;
+    return;
+  }
+
+  els.oddsLeaderboard.innerHTML = `
+    <article class="odds-leaderboard">
+      <div class="section-heading compact">
+        <div>
+          <h3>Predicted Winner</h3>
+          <p>Modelled sweepstake odds based on starting tournament odds plus live group results.</p>
+        </div>
+      </div>
+      <div class="odds-rank-list">
+        ${leaderboard.slice(0, 3).map((entry, index) => renderOddsLeader(entry, index + 1)).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderOddsLeader(entry, rank) {
+  const medalClass = rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "";
+  const medal = rank <= 3 ? `<span class="medal-badge ${medalClass}" aria-label="${ordinalRank(rank)} place">${ordinalRank(rank)}</span>` : `<span class="rank-badge">${ordinalRank(rank)}</span>`;
+  return `
+    <div class="odds-rank-card ${playerToneClass(entry.player.id)} ${rank <= 3 ? "podium" : ""}">
+      <div class="odds-rank-main">
+        ${medal}
+        <div>
+          <strong>${escapeHtml(entry.player.name || "Unnamed player")}</strong>
+        </div>
+      </div>
+      <strong class="prediction-percent">${formatPercent(entry.probability)}</strong>
+    </div>
+  `;
 }
 
 function renderChallengeGame() {
