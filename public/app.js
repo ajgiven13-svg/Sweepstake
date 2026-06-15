@@ -1112,6 +1112,7 @@ function renderOddsLeaderboard() {
       <div class="odds-rank-list">
         ${leaderboard.slice(0, 3).map((entry, index) => renderOddsLeader(entry, index + 1)).join("")}
       </div>
+      ${renderBeerBetStrip()}
     </article>
   `;
 }
@@ -1128,6 +1129,36 @@ function renderOddsLeader(entry, rank) {
         </div>
       </div>
       <strong class="prediction-percent">${formatPercent(entry.probability)}</strong>
+    </div>
+  `;
+}
+
+function renderBeerBetStrip() {
+  const curacao = standingsByTeamId().get("curacao") || {};
+  const matthewBeers = Number(curacao.goalsFor || 0);
+  const witzBeers = Number(curacao.goalsAgainst || 0) / 3;
+  const matthewState = matthewBeers > witzBeers ? "leader" : matthewBeers === witzBeers ? "tied" : "";
+  const witzState = witzBeers > matthewBeers ? "leader" : matthewBeers === witzBeers ? "tied" : "";
+
+  return `
+    <div class="beer-bet-strip" aria-label="Curacao beer bet">
+      ${renderBeerBetSide("Matthew", "Curacao goals scored", matthewBeers, matthewState)}
+      <div class="beer-bet-centre">
+        <span class="beer-graphic" aria-hidden="true">🍺</span>
+        <strong>Curacao Beer Bet</strong>
+        <small>Curacao goals scored vs goals conceded</small>
+      </div>
+      ${renderBeerBetSide("Witz", "Curacao goals conceded / 3", witzBeers, witzState)}
+    </div>
+  `;
+}
+
+function renderBeerBetSide(name, rule, beers, state) {
+  return `
+    <div class="beer-bet-side ${state}">
+      <span>${escapeHtml(name)}</span>
+      <strong>${beers.toFixed(2)} beers</strong>
+      <small>${escapeHtml(rule)}</small>
     </div>
   `;
 }
