@@ -576,6 +576,24 @@ function playerById(id) {
   return state.players.find((player) => player.id === id);
 }
 
+function ownerByTeamId() {
+  const owners = new Map();
+  state.picks.forEach((pick) => {
+    const player = playerById(pick.playerId);
+    if (player?.name) owners.set(pick.teamId, player.name);
+  });
+  return owners;
+}
+
+function ownerForTeam(teamValue, owners = ownerByTeamId()) {
+  return owners.get(teamIdFromName(teamValue)) || "";
+}
+
+function ownerChip(teamValue, owners = ownerByTeamId()) {
+  const owner = ownerForTeam(teamValue, owners);
+  return owner ? `<span class="owner-chip">${escapeHtml(owner)}</span>` : "";
+}
+
 function countsByBatch(teamIds = state.activeTeamIds) {
   return BATCHES.reduce((counts, batch) => {
     counts[batch] = teamIds.map(teamById).filter((team) => team?.batch === batch).length;
@@ -625,7 +643,13 @@ async function loadState() {
     const response = await fetch(`/api/state?drawId=${encodeURIComponent(getDrawId())}`);
     const payload = await response.json();
     if (payload.state) {
-      state = normalizeState(payload.state);
+      const remoteState = normalizeState(payload.state);
+      if (getDrawId() === "penalty-test-2" && remoteState.picks.length < TOTAL_TEAMS) {
+        state = buildCompletedStateFromAllocations(RECOVERED_DRAW_ALLOCATIONS);
+        await saveState("Recovered draw restored");
+        return;
+      }
+      state = remoteState;
       els.syncStatus.textContent = "Shared state loaded";
       return;
     }
@@ -637,7 +661,7 @@ async function loadState() {
   const local = localStorage.getItem(storageKey());
   if (local) {
     const localState = normalizeState(JSON.parse(local));
-    if (getDrawId() === "penalty-test-2" && localState.picks.length === 0) {
+    if (getDrawId() === "penalty-test-2" && localState.picks.length < TOTAL_TEAMS) {
       state = buildCompletedStateFromAllocations(RECOVERED_DRAW_ALLOCATIONS);
       await saveState("Recovered draw restored");
       return;
@@ -842,6 +866,7 @@ function renderResults() {
       : `Live data synced at ${new Date(liveData.syncedAt).toLocaleString()}.`;
   }
 
+  const owners = ownerByTeamId();
   const fixtures = liveData?.fixtures || [];
   const today = new Date();
   const buckets = [
@@ -855,12 +880,14 @@ function renderResults() {
     return `
       <article class="fixture-card">
         <h3>${label}</h3>
-        ${items.length ? items.map(renderFixture).join("") : "<p>No synced fixtures.</p>"}
+        <div class="match-list">
+          ${items.length ? items.map((match) => renderFixture(match, owners)).join("") : "<p class=\"empty-note\">No synced fixtures.</p>"}
+        </div>
       </article>
     `;
   }).join("");
 
-  els.groupTables.innerHTML = BATCHES.length ? renderGroupTables() : "";
+  els.groupTables.innerHTML = BATCHES.length ? renderGroupTables(owners) : "";
 }
 
 function renderChallengeGame() {
@@ -904,34 +931,108 @@ function renderChallengeHighScores() {
   }).join("");
 }
 
-function renderGroupTables() {
+function fallbackStandings() {
   const groups = [...new Set(state.teams.map((team) => team.group))].sort();
-  return groups.map((group) => `
+  return groups.map((group) => ({
+    group: `Group ${group}`,
+    source: "draw",
+    table: state.teams
+      .filter((team) => team.group === group)
+      .map((team) => ({
+        teamId: team.id,
+        teamName: `${team.flag} ${team.name}`,
+        played: 0,
+        points: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        goalDifference: 0,
+        status: team.status || "Active"
+      }))
+  }));
+}
+
+function renderGroupTables(owners = ownerByTeamId()) {
+  const standings = liveData?.standings?.length ? liveData.standings : fallbackStandings();
+  return standings.map((standing) => `
     <article class="group-table">
-      <h3>Group ${group}</h3>
-      <table>
+      <h3>${escapeHtml(standing.group || "Group")}</h3>
+      <table class="standings-table">
+        <thead>
+          <tr>
+            <th>Team</th>
+            <th>Owner</th>
+            <th>P</th>
+            <th>Pts</th>
+            <th>GF</th>
+            <th>GA</th>
+            <th>GD</th>
+          </tr>
+        </thead>
         <tbody>
-          ${state.teams.filter((team) => team.group === group).map((team) => `
+          ${(standing.table || []).map((row) => {
+            const teamId = row.teamId || teamIdFromName(row.teamName);
+            const localTeam = teamById(teamId);
+            const owner = owners.get(teamId) || "";
+            return `
             <tr>
-              <td>${team.flag} ${team.name}</td>
-              <td>${team.batch}</td>
-              <td>${team.status || "Active"}</td>
+              <td class="standing-team">${localTeam?.flag || ""} ${escapeHtml(row.teamName || localTeam?.name || "TBC")}${row.status ? `<small>${escapeHtml(row.status)}</small>` : ""}</td>
+              <td>${owner ? `<span class="owner-chip">${escapeHtml(owner)}</span>` : "<span class=\"owner-empty\">-</span>"}</td>
+              <td>${row.played ?? 0}</td>
+              <td><strong>${row.points ?? 0}</strong></td>
+              <td>${row.goalsFor ?? 0}</td>
+              <td>${row.goalsAgainst ?? 0}</td>
+              <td>${row.goalDifference ?? 0}</td>
             </tr>
-          `).join("")}
+          `;
+          }).join("")}
         </tbody>
       </table>
     </article>
   `).join("");
 }
 
-function renderFixture(match) {
-  const home = match.homeTeam?.shortName || match.homeTeam?.name || "TBC";
-  const away = match.awayTeam?.shortName || match.awayTeam?.name || "TBC";
+function fixtureTeamName(team) {
+  return team?.shortName || team?.name || "TBC";
+}
+
+function fixtureTeamId(team) {
+  return team?.id || teamIdFromName(fixtureTeamName(team));
+}
+
+function renderFixtureTeam(team, side, owners) {
+  const name = fixtureTeamName(team);
+  const localTeam = teamById(fixtureTeamId(team));
+  return `
+    <div class="match-team ${side}">
+      <span>${side === "home" ? "Home" : "Away"}</span>
+      <strong>${localTeam?.flag || ""} ${escapeHtml(name)}</strong>
+      ${ownerChip(name, owners)}
+    </div>
+  `;
+}
+
+function renderFixture(match, owners = ownerByTeamId()) {
   const detail = [match.group, match.venue].filter(Boolean).join(" · ");
-  const score = match.score?.fullTime
-    ? `${match.score.fullTime.home ?? "-"}-${match.score.fullTime.away ?? "-"}`
-    : new Date(match.utcDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  return `<p><strong>${home}</strong> ${score} <strong>${away}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}</p>`;
+  const fullTime = match.score?.fullTime || {};
+  const hasScore = Number.isFinite(fullTime.home) && Number.isFinite(fullTime.away);
+  const kickOff = match.utcDate
+    ? new Date(match.utcDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "TBC";
+  const score = hasScore ? `${fullTime.home}-${fullTime.away}` : kickOff;
+  const status = match.status ? String(match.status).replace(/_/g, " ") : "Scheduled";
+  return `
+    <div class="match-row">
+      <div class="match-meta">
+        <span>${escapeHtml(status)}</span>
+        ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+      </div>
+      <div class="match-teams">
+        ${renderFixtureTeam(match.homeTeam, "home", owners)}
+        <div class="score-pill">${escapeHtml(score)}</div>
+        ${renderFixtureTeam(match.awayTeam, "away", owners)}
+      </div>
+    </div>
+  `;
 }
 
 function renderAll() {

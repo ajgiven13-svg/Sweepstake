@@ -52,6 +52,153 @@ function fixture(utcDate, group, home, away, venue) {
   };
 }
 
+function teamIdFromName(value) {
+  const normalized = String(value || "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const aliases = {
+    usa: "united-states",
+    us: "united-states",
+    "united-states": "united-states",
+    "bosnia-and-herzegovina": "bosnia-herzegovina",
+    "bosnia-herzegovina": "bosnia-herzegovina",
+    "dr-congo": "dr-congo",
+    "d-r-congo": "dr-congo",
+    "cote-d-ivoire": "ivory-coast",
+    "ivory-coast": "ivory-coast",
+    "cape-verde": "cape-verde",
+    "south-korea": "south-korea",
+    "new-zealand": "new-zealand",
+    "south-africa": "south-africa",
+    "saudi-arabia": "saudi-arabia"
+  };
+  return aliases[normalized] || normalized;
+}
+
+function normalizeTeam(team = {}) {
+  const name = team.shortName || team.name || "TBC";
+  return {
+    id: team.id || teamIdFromName(name),
+    name: team.name || name,
+    shortName: team.shortName || team.name || name
+  };
+}
+
+function normalizeFixture(match) {
+  const fullTime = match.score?.fullTime || {};
+  return {
+    id: match.id || `match-${match.utcDate}-${match.homeTeam?.name}-${match.awayTeam?.name}`,
+    utcDate: match.utcDate,
+    group: match.group || match.stage || "",
+    venue: match.venue || match.area?.name || "",
+    status: match.status || "SCHEDULED",
+    source: match.source || "football-data",
+    homeTeam: normalizeTeam(match.homeTeam),
+    awayTeam: normalizeTeam(match.awayTeam),
+    score: {
+      fullTime: {
+        home: Number.isFinite(fullTime.home) ? fullTime.home : null,
+        away: Number.isFinite(fullTime.away) ? fullTime.away : null
+      }
+    }
+  };
+}
+
+function emptyTableRow(teamName, group) {
+  return {
+    teamId: teamIdFromName(teamName),
+    teamName,
+    group,
+    played: 0,
+    won: 0,
+    draw: 0,
+    lost: 0,
+    points: 0,
+    goalsFor: 0,
+    goalsAgainst: 0,
+    goalDifference: 0,
+    status: ""
+  };
+}
+
+function applyResult(row, goalsFor, goalsAgainst) {
+  row.played += 1;
+  row.goalsFor += goalsFor;
+  row.goalsAgainst += goalsAgainst;
+  row.goalDifference = row.goalsFor - row.goalsAgainst;
+  if (goalsFor > goalsAgainst) {
+    row.won += 1;
+    row.points += 3;
+  } else if (goalsFor === goalsAgainst) {
+    row.draw += 1;
+    row.points += 1;
+  } else {
+    row.lost += 1;
+  }
+}
+
+function computeStandings(fixtures) {
+  const groups = new Map();
+
+  fixtures.forEach((match) => {
+    const group = match.group || "Fixtures";
+    if (!groups.has(group)) groups.set(group, new Map());
+    const rows = groups.get(group);
+    const teams = [match.homeTeam, match.awayTeam].filter(Boolean);
+    teams.forEach((team) => {
+      const teamName = team.shortName || team.name || "TBC";
+      const teamId = team.id || teamIdFromName(teamName);
+      if (!rows.has(teamId)) rows.set(teamId, emptyTableRow(teamName, group));
+    });
+
+    const homeScore = match.score?.fullTime?.home;
+    const awayScore = match.score?.fullTime?.away;
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return;
+
+    const homeId = match.homeTeam.id || teamIdFromName(match.homeTeam.shortName || match.homeTeam.name);
+    const awayId = match.awayTeam.id || teamIdFromName(match.awayTeam.shortName || match.awayTeam.name);
+    applyResult(rows.get(homeId), homeScore, awayScore);
+    applyResult(rows.get(awayId), awayScore, homeScore);
+  });
+
+  return [...groups.entries()].map(([group, rows]) => ({
+    group,
+    source: "computed",
+    table: [...rows.values()].sort((a, b) => (
+      b.points - a.points
+      || b.goalDifference - a.goalDifference
+      || b.goalsFor - a.goalsFor
+      || a.teamName.localeCompare(b.teamName)
+    ))
+  })).sort((a, b) => a.group.localeCompare(b.group));
+}
+
+function normalizeStandings(data) {
+  return (data.standings || []).map((standing) => ({
+    group: standing.group || standing.stage || "Standings",
+    source: "football-data",
+    table: (standing.table || []).map((row) => {
+      const team = normalizeTeam(row.team);
+      return {
+        teamId: team.id,
+        teamName: team.shortName || team.name,
+        group: standing.group || standing.stage || "Standings",
+        played: row.playedGames ?? row.played ?? 0,
+        won: row.won ?? 0,
+        draw: row.draw ?? 0,
+        lost: row.lost ?? 0,
+        points: row.points ?? 0,
+        goalsFor: row.goalsFor ?? 0,
+        goalsAgainst: row.goalsAgainst ?? 0,
+        goalDifference: row.goalDifference ?? 0,
+        status: row.status || ""
+      };
+    })
+  })).filter((standing) => standing.table.length);
+}
+
 async function fetchJson(url, headers = {}) {
   const response = await fetch(url, { headers });
   if (!response.ok) {
@@ -78,23 +225,36 @@ export default async function handler(req, res) {
   };
 
   if (!hasFootballData) {
-    payload.messages.push("Using the static published fixture schedule. Add FOOTBALL_DATA_TOKEN later if live scores are needed.");
+    payload.providerAvailable = false;
+    payload.messages.push("Using the static published fixture schedule. Live scores and official tables need FOOTBALL_DATA_TOKEN on the server.");
   }
 
   try {
     if (hasFootballData) {
-      const data = await fetchJson("https://api.football-data.org/v4/competitions/WC/matches", {
+      const headers = {
         "X-Auth-Token": process.env.FOOTBALL_DATA_TOKEN
-      });
-      payload.fixtures = data.matches || [];
+      };
+      const data = await fetchJson("https://api.football-data.org/v4/competitions/WC/matches", headers);
+      payload.fixtures = (data.matches || []).map(normalizeFixture);
+      try {
+        const standingsData = await fetchJson("https://api.football-data.org/v4/competitions/WC/standings", headers);
+        payload.standings = normalizeStandings(standingsData);
+      } catch (error) {
+        payload.messages.push(`Official standings unavailable, using fixture scores where possible: ${error.message}`);
+      }
     }
   } catch (error) {
+    payload.providerAvailable = false;
     payload.messages.push(`Football-data sync failed: ${error.message}`);
   }
 
   if (!payload.fixtures.length) {
     payload.fixturesSource = "static";
-    payload.fixtures = STATIC_FIXTURES;
+    payload.fixtures = STATIC_FIXTURES.map(normalizeFixture);
+  }
+
+  if (!payload.standings.length) {
+    payload.standings = computeStandings(payload.fixtures);
   }
 
   sendJson(res, 200, payload);
