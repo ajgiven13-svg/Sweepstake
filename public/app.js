@@ -15,6 +15,65 @@ const AUDIO_CLIPS = [
   "/assets/audio/gooooaaallll.mp3"
 ];
 const PENALTY_GOAL_AUDIO = "/assets/audio/gooooaaallll.mp3";
+const BINGO_AUDIO_CLIPS = [
+  "/assets/audio/that_s_a_bingo.mp3",
+  "/assets/audio/luigi-bingo-ho-ho-ho-ho.mp3",
+  "/assets/audio/smash-tv-bingo.mp3",
+  "/assets/audio/mk64_luigi06.mp3",
+  "/assets/audio/bingo-bango-bongo-bish-bash-bosh.mp3"
+];
+const BINGO_LETTERS = ["B", "I", "N", "G", "O"];
+const BINGO_CARD = [
+  [
+    "What minnows lacked on the pitch, their fans sure knew how to bring the party",
+    "An underwhelming final/great semi or quarter that should have been the final",
+    "Minnow team feelgood story",
+    "English group game is turgid as fuck to watch",
+    "Trump embarrasses by getting the globe wrong in presser"
+  ],
+  [
+    "Knockout tie built up as revenge for war/geopolitical beef",
+    "French team internal scandal or bust up threatens their chances",
+    "Minnow goalscorer/match winner 'used to be a janitor but look at him now' moment",
+    "Belgium disappoint horrifically once again and make you long for Italy instead",
+    "General euro condescension around fiery Latin American temperament theme"
+  ],
+  [
+    "Shameless lingering close-up TV shot of Hispanic female fans dressed all lovely",
+    "The phrase 'the Germans just know how to stick around' gets used",
+    "VAR disgrace (does in a smaller deserving nation)",
+    "Germany crash out in the group stage",
+    "A 'lesser team' qualification fight goes to goals in the groups"
+  ],
+  [
+    "Croatia and Modrić go further than anyone expected once again",
+    "England beaten by alleged minnow",
+    "World Cup first-timer nation gets first goal/win",
+    "Two teams engineer a result to both get out of the group",
+    "Neymar starts and hobbles off early in fuckin bits"
+  ],
+  [
+    "Self-obsessed Ronaldo moment/story at the expense of his team and they go out",
+    "South American minnow win is condescendingly attributed to acclimatisation instead of skill/performance",
+    "A national anthem gets fucking butchered",
+    "England go out on penalties",
+    "A match gets rough as fuck with 6+ cards"
+  ],
+  [
+    "Ronaldo breaks another individual record that people aren't aware of / don't give a fuck about",
+    "Brazil humiliates someone",
+    "No South American team reaches the semi-finals",
+    "Messi injured -> still starts -> Argentina go out",
+    "Any of Australia, Turkey, Tunisia, Switzerland are 110% fucking shite"
+  ],
+  [
+    "Third place playoff is shite",
+    "Trump/Infantino insert themselves somewhere cringe and steal the limelight",
+    "African/Asian team feelgood story",
+    "Netherlands unreal in group -> uninspiring in last 32 -> shit + gone in last 16",
+    "A host nation goes further than they ever did before"
+  ]
+];
 const STAGES = ["penalty", "freeKick", "runningAttack"];
 const STAGE_LABELS = {
   penalty: "Penalty",
@@ -66,6 +125,62 @@ const RUNNING_FIELD = {
   centerY: 210
 };
 const RUNNING_KEEPER_REACH_RATIO = 1 / 3;
+const GROUP_LETTERS = "ABCDEFGHIJKL".split("");
+const KNOCKOUT_ROUND_OF_32_SLOTS = [
+  { match: 73, sideA: { group: "A", position: 2 }, sideB: { group: "B", position: 2 } },
+  { match: 74, sideA: { group: "E", position: 1 }, sideB: { thirdSlot: "M74", candidates: ["A", "B", "C", "D", "F"] } },
+  { match: 75, sideA: { group: "F", position: 1 }, sideB: { group: "C", position: 2 } },
+  { match: 76, sideA: { group: "C", position: 1 }, sideB: { group: "F", position: 2 } },
+  { match: 77, sideA: { group: "I", position: 1 }, sideB: { thirdSlot: "M77", candidates: ["C", "D", "F", "G", "H"] } },
+  { match: 78, sideA: { group: "E", position: 2 }, sideB: { group: "I", position: 2 } },
+  { match: 79, sideA: { group: "A", position: 1 }, sideB: { thirdSlot: "M79", candidates: ["C", "E", "F", "H", "I"] } },
+  { match: 80, sideA: { group: "L", position: 1 }, sideB: { thirdSlot: "M80", candidates: ["E", "H", "I", "J", "K"] } },
+  { match: 81, sideA: { group: "D", position: 1 }, sideB: { thirdSlot: "M81", candidates: ["B", "E", "F", "I", "J"] } },
+  { match: 82, sideA: { group: "G", position: 1 }, sideB: { thirdSlot: "M82", candidates: ["A", "E", "H", "I", "J"] } },
+  { match: 83, sideA: { group: "K", position: 2 }, sideB: { group: "L", position: 2 } },
+  { match: 84, sideA: { group: "H", position: 1 }, sideB: { group: "J", position: 2 } },
+  { match: 85, sideA: { group: "B", position: 1 }, sideB: { thirdSlot: "M85", candidates: ["E", "F", "G", "I", "J"] } },
+  { match: 86, sideA: { group: "J", position: 1 }, sideB: { group: "H", position: 2 } },
+  { match: 87, sideA: { group: "K", position: 1 }, sideB: { thirdSlot: "M87", candidates: ["D", "E", "I", "J", "L"] } },
+  { match: 88, sideA: { group: "D", position: 2 }, sideB: { group: "G", position: 2 } }
+];
+const KNOCKOUT_PATHS = [
+  {
+    round: "Round of 16",
+    matches: [
+      [89, 73, 75],
+      [90, 74, 77],
+      [91, 76, 78],
+      [92, 79, 80],
+      [93, 83, 84],
+      [94, 81, 82],
+      [95, 86, 88],
+      [96, 85, 87]
+    ]
+  },
+  {
+    round: "Quarter-finals",
+    matches: [
+      [97, 89, 90],
+      [98, 93, 94],
+      [99, 91, 92],
+      [100, 95, 96]
+    ]
+  },
+  {
+    round: "Semi-finals",
+    matches: [
+      [101, 97, 98],
+      [102, 99, 100]
+    ]
+  },
+  {
+    round: "Final",
+    matches: [
+      [104, 101, 102]
+    ]
+  }
+];
 
 const STATIC_ODDS = {
   spain: "4/1",
@@ -332,6 +447,8 @@ const els = {
   oddsLeaderboard: $("#oddsLeaderboard"),
   fixturesGrid: $("#fixturesGrid"),
   groupTables: $("#groupTables"),
+  knockoutBracket: $("#knockoutBracket"),
+  bingoGrid: $("#bingoGrid"),
   goalOverlay: $("#goalOverlay"),
   penaltyCanvas: $("#penaltyCanvas"),
   challengeStartButton: $("#challengeStartButton"),
@@ -389,6 +506,7 @@ function createDefaultState(drawId = getDrawId()) {
     drawSchedule: [],
     picks: [],
     currentPickIndex: 0,
+    bingoMarkedIds: [],
     phase: "names",
     resultsCache: null,
     updatedAt: new Date().toISOString()
@@ -493,6 +611,7 @@ function buildCompletedStateFromAllocations(allocations, drawId = getDrawId()) {
     drawSchedule,
     picks,
     currentPickIndex: drawSchedule.length,
+    bingoMarkedIds: state?.bingoMarkedIds || [],
     phase: "complete",
     resultsCache: state?.resultsCache || null,
     updatedAt: new Date().toISOString()
@@ -575,6 +694,10 @@ function normalizeState(input) {
   next.picks = next.picks || [];
   next.drawSchedule = next.drawSchedule || [];
   next.currentPickIndex = Number(next.currentPickIndex || 0);
+  const validBingoIds = new Set(BINGO_CARD.flatMap((row, rowIndex) => row.map((_, colIndex) => bingoCellId(rowIndex, colIndex))));
+  next.bingoMarkedIds = Array.isArray(next.bingoMarkedIds)
+    ? [...new Set(next.bingoMarkedIds)].filter((id) => validBingoIds.has(id))
+    : [];
   next.phase = next.phase || "names";
   return next;
 }
@@ -1264,6 +1387,308 @@ function renderGroupTables(owners = ownerByTeamId()) {
   `).join("");
 }
 
+function currentStandings() {
+  return liveData?.standings?.length ? liveData.standings : fallbackStandings();
+}
+
+function standingGroupLetter(standing, row = {}) {
+  const source = row.group || standing.group || "";
+  const match = String(source).match(/\b([A-L])\b/i) || String(source).match(/Group\s+([A-L])/i);
+  return match ? match[1].toUpperCase() : "";
+}
+
+function standingTeamId(row) {
+  return row.teamId || teamIdFromName(row.teamName);
+}
+
+function standingTeamName(row) {
+  const localTeam = teamById(standingTeamId(row));
+  return localTeam?.name || row.teamName || "TBC";
+}
+
+function knockoutTeamEntry(row, group, position) {
+  if (!row) {
+    return {
+      type: "placeholder",
+      label: `${group}${position}`,
+      positionLabel: `${group}${position}`,
+      detail: "TBD"
+    };
+  }
+
+  const teamId = standingTeamId(row);
+  const localTeam = teamById(teamId);
+  return {
+    type: "team",
+    teamId,
+    teamName: standingTeamName(row),
+    flag: localTeam?.flag || "",
+    group,
+    position,
+    positionLabel: position === 3 ? `3${group}` : `${group}${position}`,
+    row
+  };
+}
+
+function projectGroupQualifiers(standings = currentStandings()) {
+  const byGroup = new Map();
+  const thirdRows = [];
+
+  standings.forEach((standing) => {
+    const group = standingGroupLetter(standing);
+    if (!group) return;
+    const rows = [...(standing.table || [])];
+    const qualifiers = [
+      knockoutTeamEntry(rows[0], group, 1),
+      knockoutTeamEntry(rows[1], group, 2)
+    ];
+    byGroup.set(group, qualifiers);
+    if (rows[2]) {
+      thirdRows.push(knockoutTeamEntry(rows[2], group, 3));
+    }
+  });
+
+  GROUP_LETTERS.forEach((group) => {
+    if (!byGroup.has(group)) {
+      byGroup.set(group, [
+        knockoutTeamEntry(null, group, 1),
+        knockoutTeamEntry(null, group, 2)
+      ]);
+    }
+  });
+
+  return {
+    byGroup,
+    thirdRows,
+    thirdQualifiers: rankThirdPlacedTeams(thirdRows).slice(0, 8)
+  };
+}
+
+function rankThirdPlacedTeams(thirdRows) {
+  return [...thirdRows].sort((a, b) => (
+    Number(b.row?.points || 0) - Number(a.row?.points || 0)
+    || Number(b.row?.goalDifference || 0) - Number(a.row?.goalDifference || 0)
+    || Number(b.row?.goalsFor || 0) - Number(a.row?.goalsFor || 0)
+    || standingTeamName(a.row || {}).localeCompare(standingTeamName(b.row || {}))
+  ));
+}
+
+function thirdPlaceSlotDefinitions() {
+  return KNOCKOUT_ROUND_OF_32_SLOTS
+    .map((slot) => slot.sideA.thirdSlot ? slot.sideA : slot.sideB.thirdSlot ? slot.sideB : null)
+    .filter(Boolean);
+}
+
+function solveThirdPlaceAssignments(thirdQualifiers) {
+  const slots = thirdPlaceSlotDefinitions()
+    .map((slot) => ({
+      ...slot,
+      options: thirdQualifiers.filter((team) => slot.candidates.includes(team.group))
+    }))
+    .sort((a, b) => a.options.length - b.options.length || a.thirdSlot.localeCompare(b.thirdSlot));
+  const assignments = new Map();
+  const usedGroups = new Set();
+
+  function assign(index) {
+    if (index >= slots.length) return true;
+    const slot = slots[index];
+    for (const team of slot.options) {
+      if (usedGroups.has(team.group)) continue;
+      usedGroups.add(team.group);
+      assignments.set(slot.thirdSlot, team);
+      if (assign(index + 1)) return true;
+      assignments.delete(slot.thirdSlot);
+      usedGroups.delete(team.group);
+    }
+    return false;
+  }
+
+  if (assign(0)) return assignments;
+
+  const fallback = new Map();
+  const fallbackUsed = new Set();
+  thirdPlaceSlotDefinitions().forEach((slot) => {
+    const team = thirdQualifiers.find((candidate) => (
+      slot.candidates.includes(candidate.group)
+      && !fallbackUsed.has(candidate.group)
+    ));
+    if (team) {
+      fallback.set(slot.thirdSlot, team);
+      fallbackUsed.add(team.group);
+    }
+  });
+  return fallback;
+}
+
+function sideFromDescriptor(descriptor, qualifiers, thirdAssignments) {
+  if (descriptor.thirdSlot) {
+    return thirdAssignments.get(descriptor.thirdSlot) || {
+      type: "placeholder",
+      label: `3rd Group ${descriptor.candidates.join("/")}`,
+      positionLabel: `3 ${descriptor.candidates.join("/")}`,
+      detail: "Projected third-place slot"
+    };
+  }
+  return qualifiers.byGroup.get(descriptor.group)?.[descriptor.position - 1]
+    || knockoutTeamEntry(null, descriptor.group, descriptor.position);
+}
+
+function buildPredictedRoundOf32(qualifiers = projectGroupQualifiers()) {
+  const thirdAssignments = solveThirdPlaceAssignments(qualifiers.thirdQualifiers);
+  return KNOCKOUT_ROUND_OF_32_SLOTS.map((slot) => ({
+    round: "Round of 32",
+    match: slot.match,
+    sideA: sideFromDescriptor(slot.sideA, qualifiers, thirdAssignments),
+    sideB: sideFromDescriptor(slot.sideB, qualifiers, thirdAssignments)
+  }));
+}
+
+function buildKnockoutBracket(roundOf32 = buildPredictedRoundOf32()) {
+  const pathRounds = KNOCKOUT_PATHS.map((round) => ({
+    round: round.round,
+    matches: round.matches.map(([match, sourceA, sourceB]) => ({
+      round: round.round,
+      match,
+      sideA: {
+        type: "placeholder",
+        label: `Winner M${sourceA}`,
+        positionLabel: `W${sourceA}`,
+        detail: "Knockout path"
+      },
+      sideB: {
+        type: "placeholder",
+        label: `Winner M${sourceB}`,
+        positionLabel: `W${sourceB}`,
+        detail: "Knockout path"
+      }
+    }))
+  }));
+
+  return [
+    { round: "Round of 32", matches: roundOf32 },
+    ...pathRounds
+  ];
+}
+
+function renderPredictedKnockouts() {
+  if (!els.knockoutBracket) return;
+  const bracket = buildKnockoutBracket();
+  const owners = ownerByTeamId();
+  const matchesByNumber = new Map(bracket.flatMap((round) => round.matches.map((match) => [match.match, match])));
+  const layout = {
+    left: [
+      { round: "Round of 32", matches: [73, 75, 74, 77, 83, 84, 81, 82] },
+      { round: "Round of 16", matches: [89, 90, 93, 94] },
+      { round: "Quarter-finals", matches: [97, 98] },
+      { round: "Semi-final", matches: [101] }
+    ],
+    right: [
+      { round: "Semi-final", matches: [102] },
+      { round: "Quarter-finals", matches: [99, 100] },
+      { round: "Round of 16", matches: [91, 92, 95, 96] },
+      { round: "Round of 32", matches: [76, 78, 79, 80, 86, 88, 85, 87] }
+    ],
+    final: matchesByNumber.get(104)
+  };
+
+  els.knockoutBracket.innerHTML = `
+    <div class="knockout-bracket tournament-bracket" aria-label="Predicted World Cup knockout bracket">
+      <div class="bracket-side bracket-left">
+        ${layout.left.map((round) => renderBracketColumn(round, matchesByNumber, owners)).join("")}
+      </div>
+      <section class="bracket-final">
+        <h3>Final</h3>
+        ${layout.final ? renderKnockoutMatch(layout.final, owners) : ""}
+      </section>
+      <div class="bracket-side bracket-right">
+        ${layout.right.map((round) => renderBracketColumn(round, matchesByNumber, owners)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderBracketColumn(round, matchesByNumber, owners) {
+  const matches = round.matches.map((matchNumber) => matchesByNumber.get(matchNumber)).filter(Boolean);
+  return `
+    <section class="knockout-round">
+      <h3>${escapeHtml(round.round)}</h3>
+      <div class="knockout-match-list">
+        ${matches.map((match) => renderKnockoutMatch(match, owners)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderKnockoutMatch(match, owners) {
+  return `
+    <article class="knockout-match">
+      <div class="knockout-match-head">
+        <span>${escapeHtml(match.round)}</span>
+        <strong>M${match.match}</strong>
+      </div>
+      ${renderKnockoutSide(match.sideA, owners)}
+      ${renderKnockoutSide(match.sideB, owners)}
+    </article>
+  `;
+}
+
+function renderKnockoutSide(side, owners) {
+  const isTeam = side.type === "team";
+  return `
+    <div class="knockout-side ${isTeam ? "is-team" : "is-placeholder"}">
+      <span class="knockout-seed">${escapeHtml(side.positionLabel || "")}</span>
+      <div>
+        <strong>${isTeam ? `${side.flag || ""} ${escapeHtml(side.teamName)}` : escapeHtml(side.label)}</strong>
+        ${isTeam ? ownerChip(side.teamId, owners) : `<small>${escapeHtml(side.detail || "")}</small>`}
+      </div>
+    </div>
+  `;
+}
+
+function bingoCellId(rowIndex, colIndex) {
+  return `r${rowIndex}-c${colIndex}`;
+}
+
+function renderBingoCard() {
+  if (!els.bingoGrid) return;
+  const marked = new Set(state.bingoMarkedIds || []);
+  els.bingoGrid.innerHTML = `
+    ${BINGO_LETTERS.map((letter) => `<div class="bingo-letter" aria-hidden="true">${letter}</div>`).join("")}
+    ${BINGO_CARD.flatMap((row, rowIndex) => row.map((text, colIndex) => {
+      const cellId = bingoCellId(rowIndex, colIndex);
+      const isMarked = marked.has(cellId);
+      return `
+        <button type="button" class="bingo-cell ${isMarked ? "marked" : ""}" data-bingo-cell="${cellId}" aria-pressed="${isMarked}">
+          <span class="bingo-cell-index">${BINGO_LETTERS[colIndex]}${rowIndex + 1}</span>
+          <span class="bingo-cell-text">${escapeHtml(text)}</span>
+        </button>
+      `;
+    })).join("")}
+  `;
+}
+
+function playBingoAudio() {
+  const audio = new Audio(BINGO_AUDIO_CLIPS[Math.floor(Math.random() * BINGO_AUDIO_CLIPS.length)]);
+  audio.volume = 0.95;
+  audio.play().catch(() => {});
+}
+
+async function toggleBingoCell(cellId) {
+  const marked = new Set(state.bingoMarkedIds || []);
+  const willMark = !marked.has(cellId);
+  if (willMark) {
+    marked.add(cellId);
+  } else {
+    marked.delete(cellId);
+  }
+  state.bingoMarkedIds = [...marked];
+  renderBingoCard();
+  await saveState("Bingo card saved");
+  if (willMark) {
+    playBingoAudio();
+  }
+}
+
 function fixtureTeamName(team) {
   return team?.shortName || team?.name || "TBC";
 }
@@ -1329,6 +1754,8 @@ function renderAll() {
   renderExclusions();
   renderDraw();
   renderResults();
+  renderPredictedKnockouts();
+  renderBingoCard();
   renderChallengeGame();
 }
 
@@ -2498,6 +2925,11 @@ function bindEvents() {
   els.challengeStartButton?.addEventListener("click", startChallenge);
   els.challengeResetButton?.addEventListener("click", resetChallengeScore);
   els.challengeScoreForm?.addEventListener("submit", saveChallengeHighScore);
+  els.bingoGrid?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-bingo-cell]");
+    if (!button) return;
+    await toggleBingoCell(button.dataset.bingoCell);
+  });
   window.addEventListener("keydown", (event) => {
     if (!$("[data-panel='penalties']")?.classList.contains("active")) return;
     if (event.key === " " || event.key === "Enter") {

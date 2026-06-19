@@ -42,6 +42,8 @@
           <button type="button" class="tab-button" data-step="exclusions">Exclusions</button>
           <button type="button" class="tab-button" data-step="draw">Draw</button>
           <button type="button" class="tab-button active" data-step="results">Results</button>
+          <button type="button" class="tab-button" data-step="knockouts">Predicted Knockouts</button>
+          <button type="button" class="tab-button" data-step="bingo">Bingo</button>
           <button type="button" class="tab-button" data-step="penalties">FIFA 2026 1080pHDRip_PirateBay</button>
         </nav>
 
@@ -166,6 +168,37 @@ Argentina — Best — 8/1"></textarea>
               <h3>Group tables</h3>
             </div>
             <div class="table-wrap" id="groupTables"></div>
+          </section>
+        </section>
+
+        <section class="panel" id="knockoutsPanel" data-panel="knockouts">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Projected Knockout Path</p>
+              <h2>Predicted Knockouts</h2>
+            </div>
+          </div>
+          <div class="status-strip">
+            Based on the live group tables currently shown in Results. Top two from each group plus eight best third-place teams advance.
+          </div>
+          <div class="knockout-note">
+            Projected from current standings; third-place pairings follow FIFA 2026 slot constraints.
+          </div>
+          <section class="knockout-bracket-wrap" id="knockoutBracket"></section>
+        </section>
+
+        <section class="panel" id="bingoPanel" data-panel="bingo">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">World Cup watch party</p>
+              <h2>Bingo</h2>
+            </div>
+          </div>
+          <div class="status-strip bingo-note">
+            Shared bingo card. Everyone using this link sees the same marked boxes.
+          </div>
+          <section class="bingo-card" aria-label="World Cup bingo card">
+            <div class="bingo-grid" id="bingoGrid"></div>
           </section>
         </section>
 
