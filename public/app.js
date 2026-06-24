@@ -447,6 +447,8 @@ const els = {
   oddsLeaderboard: $("#oddsLeaderboard"),
   fixturesGrid: $("#fixturesGrid"),
   groupTables: $("#groupTables"),
+  knockoutResultsSection: $("#knockoutResultsSection"),
+  knockoutResults: $("#knockoutResults"),
   knockoutBracket: $("#knockoutBracket"),
   bingoGrid: $("#bingoGrid"),
   goalOverlay: $("#goalOverlay"),
@@ -1208,6 +1210,7 @@ function renderResults() {
     `;
   }).join("");
 
+  renderKnockoutResults(fixtures, owners);
   els.groupTables.innerHTML = BATCHES.length ? renderGroupTables(owners) : "";
 }
 
@@ -1257,7 +1260,7 @@ function renderOddsLeader(entry, rank) {
 }
 
 function renderBeerBetStrip() {
-  const curacao = standingsByTeamId().get("curacao") || {};
+  const curacao = freshestTeamTotals("curacao");
   const matthewBeers = Number(curacao.goalsFor || 0);
   const witzBeers = Number(curacao.goalsAgainst || 0) / 3;
   const matthewState = matthewBeers > witzBeers ? "leader" : matthewBeers === witzBeers ? "tied" : "";
@@ -1276,6 +1279,38 @@ function renderBeerBetStrip() {
   `;
 }
 
+function fixtureStatusIsComplete(match) {
+  const fullTime = match.score?.fullTime || {};
+  return Number.isFinite(fullTime.home)
+    && Number.isFinite(fullTime.away)
+    && fixtureStatusClass(match, true).includes("full-time");
+}
+
+function teamFixtureTotals(teamId) {
+  return (liveData?.fixtures || []).reduce((totals, match) => {
+    if (!fixtureStatusIsComplete(match)) return totals;
+    const fullTime = match.score?.fullTime || {};
+    const homeId = fixtureTeamId(match.homeTeam);
+    const awayId = fixtureTeamId(match.awayTeam);
+    if (homeId === teamId) {
+      totals.played += 1;
+      totals.goalsFor += fullTime.home;
+      totals.goalsAgainst += fullTime.away;
+    } else if (awayId === teamId) {
+      totals.played += 1;
+      totals.goalsFor += fullTime.away;
+      totals.goalsAgainst += fullTime.home;
+    }
+    return totals;
+  }, { played: 0, goalsFor: 0, goalsAgainst: 0 });
+}
+
+function freshestTeamTotals(teamId) {
+  const row = standingsByTeamId().get(teamId) || {};
+  const fixtureTotals = teamFixtureTotals(teamId);
+  return fixtureTotals.played > Number(row.played || 0) ? fixtureTotals : row;
+}
+
 function renderBeerBetSide(name, rule, beers, state) {
   return `
     <div class="beer-bet-side ${state}">
@@ -1284,6 +1319,44 @@ function renderBeerBetSide(name, rule, beers, state) {
       <small>${escapeHtml(rule)}</small>
     </div>
   `;
+}
+
+function isGroupStageLabel(value) {
+  return /^Group\s+[A-L]$/i.test(String(value || "").trim());
+}
+
+function isKnockoutFixture(match) {
+  const label = String(match.group || match.stage || "").trim();
+  return label && !isGroupStageLabel(label);
+}
+
+function renderKnockoutResults(fixtures, owners = ownerByTeamId()) {
+  if (!els.knockoutResults || !els.knockoutResultsSection) return;
+  const knockoutFixtures = fixtures.filter(isKnockoutFixture);
+  els.knockoutResultsSection.hidden = knockoutFixtures.length === 0;
+  if (!knockoutFixtures.length) {
+    els.knockoutResults.innerHTML = "";
+    return;
+  }
+
+  const grouped = knockoutFixtures.reduce((groups, match) => {
+    const label = match.group || "Knockout stage";
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(match);
+    return groups;
+  }, new Map());
+
+  els.knockoutResults.innerHTML = [...grouped.entries()].map(([stage, matches]) => `
+    <article class="knockout-result-card">
+      <h4>${escapeHtml(stage)}</h4>
+      <div class="match-list">
+        ${matches
+          .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
+          .map((match) => renderFixture(match, owners))
+          .join("")}
+      </div>
+    </article>
+  `).join("");
 }
 
 function renderChallengeGame() {

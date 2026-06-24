@@ -962,6 +962,28 @@ tr:last-child td {
   font-weight: 800;
 }
 
+.knockout-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.knockout-result-card {
+  border: 2px solid rgba(28, 23, 12, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 254, 248, 0.92);
+  padding: 12px;
+  box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
+}
+
+.knockout-result-card h4 {
+  margin: 0 0 10px;
+  color: var(--green-dark);
+  font-size: 0.9rem;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
 .knockout-note {
   margin-top: 10px;
   border: 2px solid rgba(20, 95, 65, 0.2);
@@ -1497,6 +1519,7 @@ tr:last-child td {
   .fixtures-grid,
   .beer-bet-strip,
   .odds-rank-list,
+  .knockout-results,
   .penalty-scoreboard,
   #groupTables {
     grid-template-columns: 1fr;
@@ -1507,7 +1530,8 @@ tr:last-child td {
   }
 
   .knockout-bracket-wrap {
-    overflow-x: visible;
+    height: auto;
+    overflow: visible;
   }
 
   .knockout-bracket {

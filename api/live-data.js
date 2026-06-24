@@ -132,9 +132,29 @@ function tomorrowDateRangeEnd() {
   return formatEspnDate(tomorrow);
 }
 
-function parseEspnGroup(note) {
-  const match = String(note || "").match(/Group\s+[A-Z]/i);
-  return match ? match[0].replace(/^group/i, "Group") : "";
+function parseEspnStage(note) {
+  const value = String(note || "");
+  const groupMatch = value.match(/Group\s+[A-Z]/i);
+  if (groupMatch) return groupMatch[0].replace(/^group/i, "Group");
+  const stagePatterns = [
+    /Round of 32/i,
+    /Round of 16/i,
+    /Quarter[-\s]?finals?/i,
+    /Semi[-\s]?finals?/i,
+    /Third[-\s]?place/i,
+    /Final/i
+  ];
+  const stageMatch = stagePatterns.map((pattern) => value.match(pattern)).find(Boolean);
+  if (!stageMatch) return "";
+  return stageMatch[0]
+    .replace(/quarter[-\s]?finals?/i, "Quarter-finals")
+    .replace(/semi[-\s]?finals?/i, "Semi-finals")
+    .replace(/third[-\s]?place/i, "Third place")
+    .replace(/final/i, "Final");
+}
+
+function isGroupStageName(value) {
+  return /^Group\s+[A-Z]$/i.test(String(value || "").trim());
 }
 
 function normalizeEspnTeam(competitor = {}) {
@@ -167,7 +187,7 @@ function normalizeEspnFixture(event) {
   return {
     id: event.id || competition.id || `espn-${event.date}-${event.name}`,
     utcDate: competition.date || event.date,
-    group: parseEspnGroup(competition.altGameNote),
+    group: parseEspnStage(competition.altGameNote),
     venue,
     status: statusType.description || statusType.name || "Scheduled",
     statusState: statusType.state || "",
@@ -222,6 +242,7 @@ function computeStandings(fixtures) {
 
   fixtures.forEach((match) => {
     const group = match.group || "Fixtures";
+    if (!isGroupStageName(group)) return;
     if (!groups.has(group)) groups.set(group, new Map());
     const rows = groups.get(group);
     const teams = [match.homeTeam, match.awayTeam].filter(Boolean);
@@ -304,7 +325,7 @@ async function fetchJson(url, headers = {}) {
 
 async function fetchEspnFixtures() {
   const endDate = tomorrowDateRangeEnd();
-  const data = await fetchJson(`${ESPN_SCOREBOARD_URL}?dates=${TOURNAMENT_START_DATE}-${endDate}`);
+  const data = await fetchJson(`${ESPN_SCOREBOARD_URL}?dates=${TOURNAMENT_START_DATE}-${endDate}&limit=500`);
   return (data.events || []).map(normalizeEspnFixture);
 }
 
