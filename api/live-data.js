@@ -1,7 +1,10 @@
 import { sendJson } from "../lib/http.js";
 
 const TOURNAMENT_START_DATE = "20260611";
+const TOURNAMENT_END_DATE = "20260719";
 const ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
+const ESPN_STATISTICS_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/statistics";
+const WIKIPEDIA_SUMMARY_URL = "https://en.wikipedia.org/api/rest_v1/page/summary";
 const FIFA_FIXTURES_URL = "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/scores-fixtures";
 const SKY_FIXTURES_URL = "https://www.skysports.com/fifa-world-cup-scores-fixtures";
 const MONTH_INDEX = {
@@ -74,6 +77,18 @@ const TEAM_GROUP_BY_ID = Object.fromEntries([
   ["ghana", "L"],
   ["panama", "L"]
 ]);
+
+const LOCAL_PLAYER_IMAGES = {
+  "lionel-messi": "/images/players/messi.jpg",
+  messi: "/images/players/messi.jpg",
+  "kylian-mbappe": "/images/players/mbappe.webp",
+  mbappe: "/images/players/mbappe.webp",
+  "erling-haaland": "/images/players/haaland.webp",
+  haaland: "/images/players/haaland.webp",
+  "cristiano-ronaldo": "/images/players/ronaldo.png",
+  ronaldo: "/images/players/ronaldo.png"
+};
+const wikipediaImageCache = new Map();
 
 const STATIC_FIXTURES = [
   fixture("2026-06-11T17:30:00Z", "Group A", "Mexico", "South Africa", "Mexico City Stadium"),
@@ -162,6 +177,20 @@ function teamIdFromName(value) {
   return aliases[normalized] || normalized;
 }
 
+function slugFromName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function localPlayerImage(playerName) {
+  const slug = slugFromName(playerName);
+  return LOCAL_PLAYER_IMAGES[slug] || "";
+}
+
 function displayTeamName(value) {
   const name = String(value || "").trim();
   return SKY_TEAM_ALIASES[name] || name || "TBC";
@@ -215,12 +244,6 @@ function formatEspnDate(date) {
   return `${year}${month}${day}`;
 }
 
-function tomorrowDateRangeEnd() {
-  const tomorrow = new Date();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-  return formatEspnDate(tomorrow);
-}
-
 function parseEspnStage(note) {
   const value = String(note || "");
   const groupMatch = value.match(/Group\s+[A-Z]/i);
@@ -231,6 +254,7 @@ function parseEspnStage(note) {
     /Quarter[-\s]?finals?/i,
     /Semi[-\s]?finals?/i,
     /Third[-\s]?place/i,
+    /3rd[-\s]?Place Match/i,
     /Final/i
   ];
   const stageMatch = stagePatterns.map((pattern) => value.match(pattern)).find(Boolean);
@@ -239,6 +263,7 @@ function parseEspnStage(note) {
     .replace(/quarter[-\s]?finals?/i, "Quarter-finals")
     .replace(/semi[-\s]?finals?/i, "Semi-finals")
     .replace(/third[-\s]?place/i, "Third place")
+    .replace(/3rd[-\s]?Place Match/i, "Third place")
     .replace(/final/i, "Final");
 }
 
@@ -417,6 +442,25 @@ async function fetchJson(url, headers = {}) {
   return response.json();
 }
 
+async function fetchWikipediaPlayerImage(playerName) {
+  const name = String(playerName || "").trim();
+  if (!name) return "";
+  const cacheKey = slugFromName(name);
+  if (wikipediaImageCache.has(cacheKey)) return wikipediaImageCache.get(cacheKey);
+  try {
+    const page = name.replace(/\s+/g, "_");
+    const data = await fetchJson(`${WIKIPEDIA_SUMMARY_URL}/${encodeURIComponent(page)}`, {
+      "User-Agent": "WorldCupSweepstake/1.0 (local app)"
+    });
+    const imageUrl = data.thumbnail?.source || data.originalimage?.source || "";
+    wikipediaImageCache.set(cacheKey, imageUrl);
+    return imageUrl;
+  } catch {
+    wikipediaImageCache.set(cacheKey, "");
+    return "";
+  }
+}
+
 async function fetchText(url, headers = {}) {
   const response = await fetch(url, { headers });
   if (!response.ok) {
@@ -579,21 +623,78 @@ async function fetchSkyLiveData() {
 }
 
 async function fetchEspnFixtures() {
-  const endDate = tomorrowDateRangeEnd();
-  const data = await fetchJson(`${ESPN_SCOREBOARD_URL}?dates=${TOURNAMENT_START_DATE}-${endDate}&limit=500`);
+  const data = await fetchJson(`${ESPN_SCOREBOARD_URL}?dates=${TOURNAMENT_START_DATE}-${TOURNAMENT_END_DATE}&limit=500`);
   return (data.events || []).map(normalizeEspnFixture);
 }
 
 async function fetchEspnLiveData() {
-  const fixtures = await fetchEspnFixtures();
+  const [fixtures, statLeaders] = await Promise.all([
+    fetchEspnFixtures(),
+    fetchEspnStatLeaders().catch(() => unavailableStatLeaders("espn"))
+  ]);
   if (!fixtures.length) {
     throw new Error("ESPN returned no fixtures.");
   }
   return {
     provider: "espn",
     fixtures,
+    statLeaders,
     messages: ["Live scores synced from ESPN fallback."]
   };
+}
+
+function normalizeEspnStatLeader(category, leader) {
+  const athlete = leader.athlete || {};
+  const team = athlete.team || {};
+  const teamName = team.displayName || team.name || "";
+  const athleteId = athlete.id || athlete.uid?.split(":").pop() || "";
+  const playerName = athlete.displayName || athlete.shortName || "Unknown player";
+  return {
+    athleteId,
+    playerName,
+    imageUrl: localPlayerImage(playerName) || athlete.headshot?.href || "",
+    espnImageUrl: athleteId ? `https://a.espncdn.com/i/headshots/soccer/players/full/${athleteId}.png` : "",
+    teamId: teamIdFromName(teamName),
+    teamName,
+    value: Number(leader.value || 0),
+    displayValue: leader.displayValue || String(leader.value ?? ""),
+    category
+  };
+}
+
+function statCategoryFromEspnName(name) {
+  const value = String(name || "").toLowerCase();
+  if (value.includes("goals")) return "goals";
+  if (value.includes("assist")) return "assists";
+  if (value.includes("clean")) return "cleanSheets";
+  return "";
+}
+
+async function fetchEspnStatLeaders() {
+  const data = await fetchJson(ESPN_STATISTICS_URL);
+  const result = unavailableStatLeaders("espn");
+  for (const stat of data.stats || []) {
+    const category = statCategoryFromEspnName(stat.name || stat.displayName);
+    if (!category) continue;
+    const leaders = (stat.leaders || [])
+      .map((leader) => normalizeEspnStatLeader(category, leader))
+      .filter((leader) => leader.value > 0)
+      .slice(0, 8);
+    if (!leaders.length) continue;
+    const enrichedLeaders = await Promise.all(leaders.map(async (leader) => ({
+      ...leader,
+      imageUrl: leader.imageUrl || await fetchWikipediaPlayerImage(leader.playerName) || leader.espnImageUrl || ""
+    })));
+    result[category] = {
+      category,
+      label: category === "goals" ? "Top scorers" : category === "assists" ? "Top assists" : "Clean sheets",
+      source: "espn",
+      leaders: enrichedLeaders,
+      unavailable: false,
+      message: ""
+    };
+  }
+  return result;
 }
 
 async function fetchFootballData(payload) {
@@ -657,14 +758,36 @@ function unavailableStatLeaders(provider = "public provider") {
   };
 }
 
-function buildSourceStatus(provider, attempts) {
+function hasStatLeaders(statLeaders) {
+  return Object.values(statLeaders || {}).some((category) => (category.leaders || []).length > 0);
+}
+
+function buildSourceStatus(provider, attempts, statLeaders) {
   return {
     provider,
     attempts,
     fixturesProvider: provider,
     standingsProvider: "computed-from-fixtures",
-    statsProvider: "unavailable"
+    statsProvider: hasStatLeaders(statLeaders) ? "espn" : "unavailable"
   };
+}
+
+function fixtureMergeKey(match) {
+  return [
+    match.group || match.stage || "",
+    match.homeTeam?.id || teamIdFromName(match.homeTeam?.name),
+    match.awayTeam?.id || teamIdFromName(match.awayTeam?.name)
+  ].join("|");
+}
+
+function mergeFixturesByPriority(baseFixtures, overlayFixtures) {
+  const byKey = new Map(baseFixtures.map((match) => [fixtureMergeKey(match), match]));
+  overlayFixtures.forEach((match) => {
+    const key = fixtureMergeKey(match);
+    const current = byKey.get(key);
+    byKey.set(key, current ? { ...current, ...match, homeTeam: current.homeTeam, awayTeam: current.awayTeam } : match);
+  });
+  return [...byKey.values()].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 }
 
 export default async function handler(req, res) {
@@ -688,22 +811,25 @@ export default async function handler(req, res) {
   };
 
   const attempts = [];
-  const adapters = [
-    ["fifa", fetchFifaLiveData],
-    ["sky", fetchSkyLiveData],
-    ["espn", fetchEspnLiveData]
-  ];
+  try {
+    const espn = await fetchEspnLiveData();
+    payload.fixtures = espn.fixtures;
+    payload.statLeaders = espn.statLeaders;
+    payload.fixturesSource = "espn";
+    payload.messages.push("Full tournament schedule synced from ESPN.");
+    attempts.push({ provider: "espn", ok: true });
+  } catch (error) {
+    attempts.push({ provider: "espn", ok: false, message: error.message });
+  }
 
-  for (const [name, adapter] of adapters) {
+  for (const [name, adapter] of [["fifa", fetchFifaLiveData], ["sky", fetchSkyLiveData]]) {
     try {
       const data = await adapter();
-      const split = splitFixtures(data.fixtures);
-      payload.fixtures = split.fixtures;
-      payload.knockoutFixtures = split.knockoutFixtures;
-      payload.fixturesSource = data.provider || name;
-      payload.messages.push(...(data.messages || [`Live scores synced from ${name}.`]));
+      payload.fixtures = payload.fixtures.length
+        ? mergeFixturesByPriority(payload.fixtures, data.fixtures)
+        : data.fixtures;
+      payload.fixturesSource = payload.fixturesSource ? `${payload.fixturesSource}+${data.provider || name}` : data.provider || name;
       attempts.push({ provider: name, ok: true });
-      break;
     } catch (error) {
       attempts.push({ provider: name, ok: false, message: error.message });
     }
@@ -727,9 +853,12 @@ export default async function handler(req, res) {
     attempts.push({ provider: "static", ok: true });
   }
 
-  payload.groupStandings = computeTournamentStandings(payload.fixtures);
+  const split = splitFixtures(payload.fixtures);
+  payload.fixtures = split.fixtures;
+  payload.knockoutFixtures = split.knockoutFixtures;
+  payload.groupStandings = computeTournamentStandings(split.groupFixtures);
   payload.standings = payload.groupStandings;
-  payload.sourceStatus = buildSourceStatus(payload.fixturesSource || "static", attempts);
+  payload.sourceStatus = buildSourceStatus(payload.fixturesSource || "static", attempts, payload.statLeaders);
 
   sendJson(res, 200, payload);
 }

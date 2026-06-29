@@ -14,7 +14,6 @@ const AUDIO_CLIPS = [
   "/assets/audio/did-you-see-that.mp3",
   "/assets/audio/gooooaaallll.mp3"
 ];
-const PENALTY_GOAL_AUDIO = "/assets/audio/gooooaaallll.mp3";
 const BINGO_AUDIO_CLIPS = [
   "/assets/audio/that_s_a_bingo.mp3",
   "/assets/audio/luigi-bingo-ho-ho-ho-ho.mp3",
@@ -450,22 +449,8 @@ const els = {
   groupTables: $("#groupTables"),
   knockoutResultsSection: $("#knockoutResultsSection"),
   knockoutResults: $("#knockoutResults"),
-  knockoutBracket: $("#knockoutBracket"),
   bingoGrid: $("#bingoGrid"),
-  goalOverlay: $("#goalOverlay"),
-  penaltyCanvas: $("#penaltyCanvas"),
-  challengeStartButton: $("#challengeStartButton"),
-  challengeResetButton: $("#challengeResetButton"),
-  challengeTime: $("#challengeTime"),
-  challengeScore: $("#challengeScore"),
-  challengeStage: $("#challengeStage"),
-  challengeDifficulty: $("#challengeDifficulty"),
-  challengeAttempts: $("#challengeAttempts"),
-  challengeMessage: $("#challengeMessage"),
-  challengeScoreForm: $("#challengeScoreForm"),
-  challengePlayerName: $("#challengePlayerName"),
-  challengeHighScores: $("#challengeHighScores"),
-  penaltyGoalFlash: $("#penaltyGoalFlash")
+  goalOverlay: $("#goalOverlay")
 };
 
 function getDrawId() {
@@ -774,6 +759,15 @@ function formatFairOdds(probability) {
 function ordinalRank(rank) {
   const suffix = rank === 1 ? "st" : rank === 2 ? "nd" : rank === 3 ? "rd" : "th";
   return `${rank}${suffix}`;
+}
+
+function initialsForName(value) {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
 function standingsByTeamId() {
@@ -1229,6 +1223,8 @@ function renderOddsLeaderboard() {
     return;
   }
 
+  const podium = leaderboard.slice(0, 3);
+  const chasingPack = leaderboard.slice(3);
   els.oddsLeaderboard.innerHTML = `
     <article class="odds-leaderboard">
       <div class="section-heading compact">
@@ -1237,19 +1233,21 @@ function renderOddsLeaderboard() {
           <p>Modelled sweepstake odds based on starting tournament odds plus live group results.</p>
         </div>
       </div>
-      <div class="odds-rank-list">
-        ${leaderboard.map((entry, index) => renderOddsLeader(entry, index + 1)).join("")}
+      <div class="odds-podium-list">
+        ${podium.map((entry, index) => renderOddsLeader(entry, index + 1)).join("")}
       </div>
-      ${renderBeerBetStrip()}
+      <div class="odds-chaser-list">
+        ${chasingPack.map((entry, index) => renderOddsLeader(entry, index + 4, true)).join("")}
+      </div>
     </article>
   `;
 }
 
-function renderOddsLeader(entry, rank) {
+function renderOddsLeader(entry, rank, compact = false) {
   const medalClass = rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "";
   const medal = rank <= 3 ? `<span class="medal-badge ${medalClass}" aria-label="${ordinalRank(rank)} place">${ordinalRank(rank)}</span>` : `<span class="rank-badge">${ordinalRank(rank)}</span>`;
   return `
-    <div class="odds-rank-card ${playerToneClass(entry.player.id)} ${rank <= 3 ? "podium" : ""}">
+    <div class="odds-rank-card ${playerToneClass(entry.player.id)} ${rank <= 3 ? "podium" : ""} ${compact ? "compact" : ""}">
       <div class="odds-rank-main">
         ${medal}
         <div>
@@ -1257,26 +1255,6 @@ function renderOddsLeader(entry, rank) {
         </div>
       </div>
       <strong class="prediction-percent">${formatPercent(entry.probability)}</strong>
-    </div>
-  `;
-}
-
-function renderBeerBetStrip() {
-  const curacao = freshestTeamTotals("curacao");
-  const matthewBeers = Number(curacao.goalsFor || 0);
-  const witzBeers = Number(curacao.goalsAgainst || 0) / 3;
-  const matthewState = matthewBeers > witzBeers ? "leader" : matthewBeers === witzBeers ? "tied" : "";
-  const witzState = witzBeers > matthewBeers ? "leader" : matthewBeers === witzBeers ? "tied" : "";
-
-  return `
-    <div class="beer-bet-strip" aria-label="Curacao beer bet">
-      ${renderBeerBetSide("Matthew", "Curacao goals scored", matthewBeers, matthewState)}
-      <div class="beer-bet-centre">
-        <span class="beer-graphic" aria-hidden="true">🍺</span>
-        <strong>Curacao Beer Bet</strong>
-        <small>Curacao goals scored vs goals conceded</small>
-      </div>
-      ${renderBeerBetSide("Witz", "Curacao goals conceded / 3", witzBeers, witzState)}
     </div>
   `;
 }
@@ -1313,16 +1291,6 @@ function freshestTeamTotals(teamId) {
   return fixtureTotals.played > Number(row.played || 0) ? fixtureTotals : row;
 }
 
-function renderBeerBetSide(name, rule, beers, state) {
-  return `
-    <div class="beer-bet-side ${state}">
-      <span>${escapeHtml(name)}</span>
-      <strong>${beers.toFixed(2)} beers</strong>
-      <small>${escapeHtml(rule)}</small>
-    </div>
-  `;
-}
-
 function isGroupStageLabel(value) {
   return /^Group\s+[A-L]$/i.test(String(value || "").trim());
 }
@@ -1332,33 +1300,115 @@ function isKnockoutFixture(match) {
   return label && !isGroupStageLabel(label);
 }
 
-function renderKnockoutResults(fixtures, owners = ownerByTeamId()) {
-  if (!els.knockoutResults || !els.knockoutResultsSection) return;
-  const knockoutFixtures = (fixtures || []).filter(isKnockoutFixture);
-  els.knockoutResultsSection.hidden = knockoutFixtures.length === 0;
-  if (!knockoutFixtures.length) {
-    els.knockoutResults.innerHTML = "";
-    return;
-  }
+const KNOCKOUT_STAGE_ORDER = [
+  "Round of 32",
+  "Round of 16",
+  "Quarter-finals",
+  "Semi-finals",
+  "Third place",
+  "Final"
+];
 
-  const grouped = knockoutFixtures.reduce((groups, match) => {
-    const label = match.group || "Knockout stage";
+function normalizeFixtureStage(value) {
+  const label = String(value || "").toLowerCase();
+  if (label.includes("round of 32")) return "Round of 32";
+  if (label.includes("round of 16")) return "Round of 16";
+  if (label.includes("quarter")) return "Quarter-finals";
+  if (label.includes("semi")) return "Semi-finals";
+  if (label.includes("third")) return "Third place";
+  if (label.includes("final")) return "Final";
+  return String(value || "Knockout stage").trim() || "Knockout stage";
+}
+
+function stageSortValue(stage) {
+  const index = KNOCKOUT_STAGE_ORDER.indexOf(stage);
+  return index === -1 ? 999 : index;
+}
+
+function fixtureHasConfirmedTeams(match) {
+  return [match.homeTeam, match.awayTeam].every((team) => {
+    const name = fixtureTeamName(team);
+    const id = fixtureTeamId(team);
+    return Boolean(id)
+      && !/^tbc|tbd|to be confirmed|winner\b/i.test(name)
+      && !/^tbc|tbd|winner\b/i.test(id);
+  });
+}
+
+function stageIsDateReached(matches) {
+  const dates = matches
+    .map((match) => new Date(match.utcDate).getTime())
+    .filter(Number.isFinite);
+  if (!dates.length) return false;
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  return Math.min(...dates) <= todayEnd.getTime();
+}
+
+function knockoutStageComplete(matches) {
+  return matches.length > 0 && matches.every(fixtureStatusIsComplete);
+}
+
+function splitVisibleKnockoutStages(fixtures) {
+  const grouped = (fixtures || []).filter(isKnockoutFixture).reduce((groups, match) => {
+    const label = normalizeFixtureStage(match.group || match.stage);
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label).push(match);
     return groups;
   }, new Map());
 
-  els.knockoutResults.innerHTML = [...grouped.entries()].map(([stage, matches]) => `
+  const stages = [...grouped.entries()]
+    .map(([stage, matches]) => ({
+      stage,
+      matches: [...matches].sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)),
+      hasConfirmedTeams: matches.some(fixtureHasConfirmedTeams),
+      dateReached: stageIsDateReached(matches),
+      isComplete: knockoutStageComplete(matches)
+    }))
+    .sort((a, b) => stageSortValue(a.stage) - stageSortValue(b.stage));
+
+  const eligible = stages.filter((entry) => entry.hasConfirmedTeams && entry.dateReached);
+  const current = eligible.find((entry) => !entry.isComplete) || eligible.at(-1);
+  if (!current) return { current: [], archive: [] };
+
+  return {
+    current: [current],
+    archive: stages.filter((entry) => (
+      entry.isComplete
+      && stageSortValue(entry.stage) < stageSortValue(current.stage)
+    ))
+  };
+}
+
+function renderKnockoutResults(fixtures, owners = ownerByTeamId()) {
+  if (!els.knockoutResults || !els.knockoutResultsSection) return;
+  const { current, archive } = splitVisibleKnockoutStages(fixtures);
+  els.knockoutResultsSection.hidden = current.length === 0 && archive.length === 0;
+  if (els.knockoutResultsSection.hidden) {
+    els.knockoutResults.innerHTML = "";
+    return;
+  }
+
+  const renderStage = ({ stage, matches }) => `
     <article class="knockout-result-card">
       <h4>${escapeHtml(stage)}</h4>
       <div class="match-list">
-        ${matches
-          .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
-          .map((match) => renderFixture(match, owners))
-          .join("")}
+        ${matches.map((match) => renderFixture(match, owners)).join("")}
       </div>
     </article>
-  `).join("");
+  `;
+
+  els.knockoutResults.innerHTML = `
+    ${current.map(renderStage).join("")}
+    ${archive.length ? `
+      <details class="knockout-archive">
+        <summary>Knockout archive</summary>
+        <div class="knockout-archive-grid">
+          ${archive.map(renderStage).join("")}
+        </div>
+      </details>
+    ` : ""}
+  `;
 }
 
 function liveFixtures() {
@@ -1385,34 +1435,40 @@ function renderTournamentLeaders(owners = ownerByTeamId()) {
     ["goals", "Top scorer"],
     ["assists", "Top assister"],
     ["cleanSheets", "Top clean sheets"]
-  ].map(([key, fallbackLabel]) => renderStatLeaderCard(leaders[key], fallbackLabel, owners));
+  ].map(([key, fallbackLabel]) => renderStatLeaderCard(leaders[key], fallbackLabel, owners)).filter(Boolean);
+  const section = $("#tournamentLeadersSection");
+  if (section) section.hidden = cards.length === 0;
   els.statLeaders.innerHTML = cards.join("");
 }
 
 function renderStatLeaderCard(category, fallbackLabel, owners = ownerByTeamId()) {
-  const leader = category?.leaders?.[0];
-  if (!leader) {
-    return `
-      <article class="stat-leader-card unavailable">
-        <div>
-          <span>${escapeHtml(category?.label || fallbackLabel)}</span>
-          <strong>Data unavailable</strong>
-        </div>
-        <p>${escapeHtml(category?.message || "Data unavailable from provider.")}</p>
-      </article>
-    `;
-  }
-  const teamId = leader.teamId || teamIdFromName(leader.teamName);
-  const owner = owners.get(teamId);
-  const localTeam = teamById(teamId);
+  const leaders = (category?.leaders || []).filter((leader) => Number(leader.value || 0) > 0).slice(0, 5);
+  if (!leaders.length) return "";
   return `
     <article class="stat-leader-card">
-      ${leader.imageUrl ? `<img src="${escapeHtml(leader.imageUrl)}" alt="" loading="lazy" onerror="this.hidden=true">` : "<span class=\"stat-leader-avatar\">?</span>"}
-      <div>
-        <span>${escapeHtml(category?.label || fallbackLabel)}</span>
-        <strong>${escapeHtml(leader.playerName || "Unknown player")}</strong>
-        <small>${localTeam?.flag || ""} ${escapeHtml(leader.teamName || localTeam?.name || "TBC")} · ${escapeHtml(String(leader.value ?? "-"))}</small>
-        ${owner ? `<span class="owner-chip ${owner.tone}">${escapeHtml(owner.name)}</span>` : "<span class=\"owner-empty\">No sweepstake owner</span>"}
+      <h4>${escapeHtml(category?.label || fallbackLabel)}</h4>
+      <div class="stat-leader-list">
+        ${leaders.map((leader, index) => {
+          const teamId = leader.teamId || teamIdFromName(leader.teamName);
+          const owner = owners.get(teamId);
+          const localTeam = teamById(teamId);
+          const initials = initialsForName(leader.playerName);
+          return `
+            <div class="stat-leader-row">
+              <span class="stat-rank">${index + 1}</span>
+              <span class="stat-leader-photo">
+                ${leader.imageUrl ? `<img src="${escapeHtml(leader.imageUrl)}" alt="" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">` : ""}
+                <span class="stat-leader-avatar" ${leader.imageUrl ? "hidden" : ""}>${escapeHtml(initials)}</span>
+              </span>
+              <div>
+                <strong>${escapeHtml(leader.playerName || "Unknown player")}</strong>
+                <small>${localTeam?.flag || ""} ${escapeHtml(leader.teamName || localTeam?.name || "TBC")}</small>
+                ${owner ? `<span class="owner-chip ${owner.tone}">${escapeHtml(owner.name)}</span>` : ""}
+              </div>
+              <b>${escapeHtml(String(leader.value ?? "-"))}</b>
+            </div>
+          `;
+        }).join("")}
       </div>
     </article>
   `;
@@ -1950,7 +2006,12 @@ function renderFixtureTeam(team, side, owners) {
 }
 
 function renderFixture(match, owners = ownerByTeamId()) {
-  const detail = [match.group, match.venue].filter(Boolean).join(" · ");
+  const dateLabel = match.utcDate ? new Date(match.utcDate).toLocaleDateString([], {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+  }) : "";
+  const detail = [match.group, dateLabel, match.venue].filter(Boolean).join(" · ");
   const fullTime = match.score?.fullTime || {};
   const hasScore = Number.isFinite(fullTime.home) && Number.isFinite(fullTime.away);
   const score = formatFixtureScore(match) || "TBC";
@@ -1991,9 +2052,7 @@ function renderAll() {
   renderExclusions();
   renderDraw();
   renderResults();
-  renderPredictedKnockouts();
   renderBingoCard();
-  renderChallengeGame();
 }
 
 function syncPlayerInputs() {
@@ -3138,50 +3197,11 @@ function bindEvents() {
   els.newDrawButton?.addEventListener("click", createNewDrawLink);
   els.loadCustomDrawButton?.addEventListener("click", loadCustomDraw);
 
-  if (els.penaltyCanvas) {
-    els.penaltyCanvas.addEventListener("pointermove", setChallengePointer);
-    els.penaltyCanvas.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      els.penaltyCanvas.setPointerCapture?.(event.pointerId);
-      startChallengeDrag(event);
-    });
-    els.penaltyCanvas.addEventListener("pointerup", (event) => {
-      event.preventDefault();
-      releaseChallengeDrag(event);
-    });
-    els.penaltyCanvas.addEventListener("pointercancel", cancelChallengeDrag);
-    els.penaltyCanvas.addEventListener("pointerleave", (event) => {
-      if (challengeGame.drag.active) releaseChallengeDrag(event);
-    });
-    els.penaltyCanvas.addEventListener("touchmove", (event) => {
-      event.preventDefault();
-      setChallengePointer(event);
-    }, { passive: false });
-  }
-
-  els.challengeStartButton?.addEventListener("click", startChallenge);
-  els.challengeResetButton?.addEventListener("click", resetChallengeScore);
-  els.challengeScoreForm?.addEventListener("submit", saveChallengeHighScore);
   els.bingoGrid?.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-bingo-cell]");
     if (!button) return;
     await toggleBingoCell(button.dataset.bingoCell);
   });
-  window.addEventListener("keydown", (event) => {
-    if (!$("[data-panel='penalties']")?.classList.contains("active")) return;
-    if (event.key === " " || event.key === "Enter") {
-      event.preventDefault();
-      challengeShoot();
-    }
-  });
-  const penaltyGoalImage = els.penaltyGoalFlash?.querySelector("img");
-  if (penaltyGoalImage) {
-    const markMissingPenaltyGif = () => els.penaltyGoalFlash.classList.add("asset-missing");
-    penaltyGoalImage.addEventListener("error", markMissingPenaltyGif);
-    if (penaltyGoalImage.complete && penaltyGoalImage.naturalWidth === 0) {
-      markMissingPenaltyGif();
-    }
-  }
 
   els.playerCountSelect.addEventListener("change", async (event) => {
     setPlayerCount(event.target.value);
@@ -3325,8 +3345,6 @@ async function init() {
   resetStagePositions();
   renderAll();
   bindEvents();
-  challengeLoop();
-  loadChallengeHighScores();
 }
 
 init();
