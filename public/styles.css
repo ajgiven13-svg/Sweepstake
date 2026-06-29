@@ -752,7 +752,7 @@ tr:last-child td {
 
 .odds-rank-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -920,6 +920,95 @@ tr:last-child td {
   grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 12px;
   border: 0;
+}
+
+.group-archive {
+  border: 2px solid rgba(28, 23, 12, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 254, 248, 0.72);
+  padding: 0;
+}
+
+.group-archive summary {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 12px 14px;
+  color: var(--green-dark);
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+
+.group-archive[open] summary {
+  border-bottom: 2px solid rgba(28, 23, 12, 0.16);
+}
+
+.group-archive #groupTables {
+  padding: 12px;
+}
+
+.stat-leader-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat-leader-card {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 2px solid rgba(28, 23, 12, 0.18);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255, 254, 248, 0.96), rgba(232, 255, 226, 0.9));
+  padding: 10px;
+  box-shadow: 0 8px 18px rgba(26, 18, 8, 0.12);
+}
+
+.stat-leader-card.unavailable {
+  grid-template-columns: 1fr;
+  background: rgba(255, 247, 218, 0.78);
+}
+
+.stat-leader-card img,
+.stat-leader-avatar {
+  width: 58px;
+  height: 58px;
+  border: 2px solid rgba(28, 23, 12, 0.2);
+  border-radius: 50%;
+  background: #fffaf0;
+  object-fit: cover;
+}
+
+.stat-leader-avatar {
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 1000;
+}
+
+.stat-leader-card span,
+.stat-leader-card small,
+.stat-leader-card p {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.stat-leader-card span {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.stat-leader-card strong {
+  display: block;
+  margin: 2px 0;
+  font-size: 1rem;
+  line-height: 1.08;
+}
+
+.stat-leader-card p {
+  margin: 0;
+  font-size: 0.82rem;
 }
 
 .standings-table {
@@ -1483,6 +1572,8 @@ tr:last-child td {
   .team-card-grid,
   .player-grid,
   .fixtures-grid,
+  .stat-leader-grid,
+  .odds-rank-list,
   .penalty-scoreboard,
   #groupTables {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1520,6 +1611,7 @@ tr:last-child td {
   .beer-bet-strip,
   .odds-rank-list,
   .knockout-results,
+  .stat-leader-grid,
   .penalty-scoreboard,
   #groupTables {
     grid-template-columns: 1fr;

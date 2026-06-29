@@ -445,6 +445,7 @@ const els = {
   refreshLiveButton: $("#refreshLiveButton"),
   liveStatus: $("#liveStatus"),
   oddsLeaderboard: $("#oddsLeaderboard"),
+  statLeaders: $("#statLeaders"),
   fixturesGrid: $("#fixturesGrid"),
   groupTables: $("#groupTables"),
   knockoutResultsSection: $("#knockoutResultsSection"),
@@ -776,7 +777,7 @@ function ordinalRank(rank) {
 }
 
 function standingsByTeamId() {
-  const standings = liveData?.standings?.length ? liveData.standings : fallbackStandings();
+  const standings = currentStandings();
   const rows = new Map();
   standings.forEach((standing) => {
     (standing.table || []).forEach((row) => {
@@ -804,7 +805,7 @@ function expectedMatchPoints(team, opponent) {
 
 function completedFixtureDeltas() {
   const deltas = new Map();
-  (liveData?.fixtures || []).forEach((match) => {
+  liveFixtures().forEach((match) => {
     const fullTime = match.score?.fullTime || {};
     if (!fixtureStatusClass(match, true).includes("full-time")) return;
     if (!Number.isFinite(fullTime.home) || !Number.isFinite(fullTime.away)) return;
@@ -1190,7 +1191,8 @@ function renderResults() {
 
   const owners = ownerByTeamId();
   renderOddsLeaderboard();
-  const fixtures = liveData?.fixtures || [];
+  renderTournamentLeaders(owners);
+  const fixtures = liveFixtures();
   const today = new Date();
   const buckets = [
     ["Yesterday", addDays(today, -1)],
@@ -1210,7 +1212,7 @@ function renderResults() {
     `;
   }).join("");
 
-  renderKnockoutResults(fixtures, owners);
+  renderKnockoutResults(liveKnockoutFixtures(), owners);
   els.groupTables.innerHTML = BATCHES.length ? renderGroupTables(owners) : "";
 }
 
@@ -1236,7 +1238,7 @@ function renderOddsLeaderboard() {
         </div>
       </div>
       <div class="odds-rank-list">
-        ${leaderboard.slice(0, 3).map((entry, index) => renderOddsLeader(entry, index + 1)).join("")}
+        ${leaderboard.map((entry, index) => renderOddsLeader(entry, index + 1)).join("")}
       </div>
       ${renderBeerBetStrip()}
     </article>
@@ -1287,7 +1289,7 @@ function fixtureStatusIsComplete(match) {
 }
 
 function teamFixtureTotals(teamId) {
-  return (liveData?.fixtures || []).reduce((totals, match) => {
+  return liveFixtures().reduce((totals, match) => {
     if (!fixtureStatusIsComplete(match)) return totals;
     const fullTime = match.score?.fullTime || {};
     const homeId = fixtureTeamId(match.homeTeam);
@@ -1332,7 +1334,7 @@ function isKnockoutFixture(match) {
 
 function renderKnockoutResults(fixtures, owners = ownerByTeamId()) {
   if (!els.knockoutResults || !els.knockoutResultsSection) return;
-  const knockoutFixtures = fixtures.filter(isKnockoutFixture);
+  const knockoutFixtures = (fixtures || []).filter(isKnockoutFixture);
   els.knockoutResultsSection.hidden = knockoutFixtures.length === 0;
   if (!knockoutFixtures.length) {
     els.knockoutResults.innerHTML = "";
@@ -1357,6 +1359,63 @@ function renderKnockoutResults(fixtures, owners = ownerByTeamId()) {
       </div>
     </article>
   `).join("");
+}
+
+function liveFixtures() {
+  return liveData?.fixtures || [];
+}
+
+function liveKnockoutFixtures() {
+  const explicit = liveData?.knockoutFixtures || [];
+  return explicit.length ? explicit : liveFixtures().filter(isKnockoutFixture);
+}
+
+function groupStandingsData() {
+  return liveData?.groupStandings?.length
+    ? liveData.groupStandings
+    : liveData?.standings?.length
+      ? liveData.standings.filter((standing) => isGroupStageLabel(standing.group))
+      : [];
+}
+
+function renderTournamentLeaders(owners = ownerByTeamId()) {
+  if (!els.statLeaders) return;
+  const leaders = liveData?.statLeaders || {};
+  const cards = [
+    ["goals", "Top scorer"],
+    ["assists", "Top assister"],
+    ["cleanSheets", "Top clean sheets"]
+  ].map(([key, fallbackLabel]) => renderStatLeaderCard(leaders[key], fallbackLabel, owners));
+  els.statLeaders.innerHTML = cards.join("");
+}
+
+function renderStatLeaderCard(category, fallbackLabel, owners = ownerByTeamId()) {
+  const leader = category?.leaders?.[0];
+  if (!leader) {
+    return `
+      <article class="stat-leader-card unavailable">
+        <div>
+          <span>${escapeHtml(category?.label || fallbackLabel)}</span>
+          <strong>Data unavailable</strong>
+        </div>
+        <p>${escapeHtml(category?.message || "Data unavailable from provider.")}</p>
+      </article>
+    `;
+  }
+  const teamId = leader.teamId || teamIdFromName(leader.teamName);
+  const owner = owners.get(teamId);
+  const localTeam = teamById(teamId);
+  return `
+    <article class="stat-leader-card">
+      ${leader.imageUrl ? `<img src="${escapeHtml(leader.imageUrl)}" alt="" loading="lazy" onerror="this.hidden=true">` : "<span class=\"stat-leader-avatar\">?</span>"}
+      <div>
+        <span>${escapeHtml(category?.label || fallbackLabel)}</span>
+        <strong>${escapeHtml(leader.playerName || "Unknown player")}</strong>
+        <small>${localTeam?.flag || ""} ${escapeHtml(leader.teamName || localTeam?.name || "TBC")} · ${escapeHtml(String(leader.value ?? "-"))}</small>
+        ${owner ? `<span class="owner-chip ${owner.tone}">${escapeHtml(owner.name)}</span>` : "<span class=\"owner-empty\">No sweepstake owner</span>"}
+      </div>
+    </article>
+  `;
 }
 
 function renderChallengeGame() {
@@ -1461,7 +1520,8 @@ function renderGroupTables(owners = ownerByTeamId()) {
 }
 
 function currentStandings() {
-  return liveData?.standings?.length ? liveData.standings : fallbackStandings();
+  const standings = groupStandingsData();
+  return standings.length ? standings : fallbackStandings();
 }
 
 function standingGroupLetter(standing, row = {}) {
@@ -1637,10 +1697,104 @@ function buildKnockoutBracket(roundOf32 = buildPredictedRoundOf32()) {
     }))
   }));
 
-  return [
+  return applyActualKnockoutFixtures([
     { round: "Round of 32", matches: roundOf32 },
     ...pathRounds
-  ];
+  ]);
+}
+
+function knockoutStageLabel(value) {
+  const label = String(value || "").toLowerCase();
+  if (label.includes("round of 32")) return "Round of 32";
+  if (label.includes("round of 16")) return "Round of 16";
+  if (label.includes("quarter")) return "Quarter-finals";
+  if (label.includes("semi")) return "Semi-finals";
+  if (label.includes("third")) return "Third place";
+  if (label.includes("final")) return "Final";
+  return "";
+}
+
+function knockoutMatchNumbersForStage(stage) {
+  const paths = {
+    "Round of 32": KNOCKOUT_ROUND_OF_32_SLOTS.map((slot) => slot.match),
+    "Round of 16": [89, 90, 91, 92, 93, 94, 95, 96],
+    "Quarter-finals": [97, 98, 99, 100],
+    "Semi-finals": [101, 102],
+    "Final": [104]
+  };
+  return paths[stage] || [];
+}
+
+function fixtureTeamEntry(team, label = "") {
+  const teamId = fixtureTeamId(team);
+  const localTeam = teamById(teamId);
+  return {
+    type: teamId ? "team" : "placeholder",
+    teamId,
+    teamName: localTeam?.name || team?.shortName || team?.name || "TBC",
+    flag: localTeam?.flag || "",
+    positionLabel: label,
+    label: team?.shortName || team?.name || "TBC",
+    detail: "Actual fixture"
+  };
+}
+
+function matchSideWinner(match) {
+  const fullTime = match.score?.fullTime || {};
+  const winnerId = match.winnerTeamId || (
+    Number.isFinite(fullTime.home) && Number.isFinite(fullTime.away) && fullTime.home !== fullTime.away
+      ? fullTime.home > fullTime.away ? fixtureTeamId(match.homeTeam) : fixtureTeamId(match.awayTeam)
+      : null
+  );
+  if (!winnerId) return null;
+  const winnerTeam = winnerId === fixtureTeamId(match.homeTeam) ? match.homeTeam : match.awayTeam;
+  const winner = fixtureTeamEntry(winnerTeam, `W${match.match || ""}`);
+  winner.detail = `Winner M${match.match || ""}`;
+  return winner;
+}
+
+function applyActualKnockoutFixtures(bracket) {
+  const fixturesByStage = liveKnockoutFixtures().reduce((groups, match) => {
+    const stage = knockoutStageLabel(match.stage || match.group);
+    if (!stage) return groups;
+    if (!groups.has(stage)) groups.set(stage, []);
+    groups.get(stage).push(match);
+    return groups;
+  }, new Map());
+
+  const bracketMatches = new Map(bracket.flatMap((round) => round.matches.map((match) => [match.match, match])));
+  fixturesByStage.forEach((fixtures, stage) => {
+    const numbers = knockoutMatchNumbersForStage(stage);
+    fixtures
+      .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate))
+      .forEach((fixture, index) => {
+        const matchNumber = Number(fixture.matchNumber || fixture.match || numbers[index]);
+        const target = bracketMatches.get(matchNumber);
+        if (!target) return;
+        target.round = stage;
+        target.sourceFixture = fixture;
+        target.sideA = fixtureTeamEntry(fixture.homeTeam, target.sideA?.positionLabel || "");
+        target.sideB = fixtureTeamEntry(fixture.awayTeam, target.sideB?.positionLabel || "");
+        fixture.match = matchNumber;
+      });
+  });
+
+  bracketMatches.forEach((match) => {
+    const winner = match.sourceFixture ? matchSideWinner(match.sourceFixture) : null;
+    if (!winner) return;
+    bracketMatches.forEach((candidate) => {
+      ["sideA", "sideB"].forEach((sideKey) => {
+        if (candidate[sideKey]?.label === `Winner M${match.match}`) {
+          candidate[sideKey] = {
+            ...winner,
+            positionLabel: `W${match.match}`
+          };
+        }
+      });
+    });
+  });
+
+  return bracket;
 }
 
 function renderPredictedKnockouts() {
@@ -1693,16 +1847,29 @@ function renderBracketColumn(round, matchesByNumber, owners) {
 }
 
 function renderKnockoutMatch(match, owners) {
+  const fixture = match.sourceFixture;
+  const score = fixture ? formatFixtureScore(fixture) : "";
   return `
     <article class="knockout-match">
       <div class="knockout-match-head">
         <span>${escapeHtml(match.round)}</span>
-        <strong>M${match.match}</strong>
+        <strong>${score ? escapeHtml(score) : `M${match.match}`}</strong>
       </div>
       ${renderKnockoutSide(match.sideA, owners)}
       ${renderKnockoutSide(match.sideB, owners)}
     </article>
   `;
+}
+
+function formatFixtureScore(match) {
+  const fullTime = match.score?.fullTime || {};
+  if (Number.isFinite(fullTime.home) && Number.isFinite(fullTime.away)) {
+    return `${fullTime.home}-${fullTime.away}`;
+  }
+  return match.utcDate ? new Date(match.utcDate).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  }) : "";
 }
 
 function renderKnockoutSide(side, owners) {
@@ -1786,10 +1953,7 @@ function renderFixture(match, owners = ownerByTeamId()) {
   const detail = [match.group, match.venue].filter(Boolean).join(" · ");
   const fullTime = match.score?.fullTime || {};
   const hasScore = Number.isFinite(fullTime.home) && Number.isFinite(fullTime.away);
-  const kickOff = match.utcDate
-    ? new Date(match.utcDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "TBC";
-  const score = hasScore ? `${fullTime.home}-${fullTime.away}` : kickOff;
+  const score = formatFixtureScore(match) || "TBC";
   const status = match.status ? String(match.status).replace(/_/g, " ") : "Scheduled";
   const statusClass = fixtureStatusClass(match, hasScore);
   return `
